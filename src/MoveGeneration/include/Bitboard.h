@@ -39,7 +39,11 @@ constexpr bool read_bit(bitboard& b, bpos pos)
 
 inline bitboard flip_vertical(bitboard b)
 {
-	return _byteswap_uint64(b);
+#if defined(__llvm__)
+    return __builtin_bswap64( b );
+#elif defined(_MSC_VER)
+    return _byteswap_uint64( value );
+#endif
 }
 
 constexpr bitboard flip_horizontal(bitboard b)

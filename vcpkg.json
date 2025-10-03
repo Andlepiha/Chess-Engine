@@ -10,10 +10,10 @@
       "name": "sfml",
       "version": "2.6.0#17"
     },
-	{
-		"name": "openal-soft",
-		"version": "1.23.0"
-  	}
+    {
+      "name": "openal-soft",
+      "version": "1.24.3"
+    }
   ],
-  "builtin-baseline": "4b6c50d962cc20aaa3ef457f8ba683b586263cfb"
+  "builtin-baseline": "a62ce77d56ee07513b4b67de1ec2daeaebfae51a"
 }

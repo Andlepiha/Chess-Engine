@@ -57,6 +57,12 @@ void terminate_func()
         std::cerr << " ...something, not an exception, dunno what." << std::endl;
     }
 
-    std::cerr << "errno: " << errno << ": " << std::strerror(errno) << std::endl;
+ #ifdef _WIN32
+    MessageBox(NULL, "Failed due to an exception", "Error", MB_OK | MB_ICONERROR);
+#else
+    std::cerr << "[ERROR] Failed due to an exception\n";
+#endif
+
+	std::cerr << "errno: " << errno << ": " << std::strerror(errno) << std::endl;
     std::abort();
 }
