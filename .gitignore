@@ -13,3 +13,5 @@ out/
 
 vcpkg_installed/
 CMakePresets.json
+
+logs

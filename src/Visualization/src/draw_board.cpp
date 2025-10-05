@@ -1,6 +1,7 @@
 #include "../headers/draw_board.hpp"
 #include <cassert>
 #include <format>
+#include <math.h>
 
 Board::Board(sf::Vector2u window_size, std::string data_dir, bool flipped)
     : flipped(flipped)
@@ -416,7 +417,7 @@ sf::Texture Board::parse_svg_file(const char *filename)
 
     if (!std::filesystem::exists(filename))
     {
-        std::string err_string = "File not found";
+        std::string err_string = std::format("Cound not find image file: {}", filename);
         throw std::runtime_error(err_string.c_str());
     }
 

@@ -27,18 +27,18 @@ target_link_libraries(chess PRIVATE spdlog::spdlog)
 set(SFML_STATIC_LIBRARIES TRUE)
 find_package(SFML 2.6.0
 	COMPONENTS
-	system window graphics audio main
+	system window graphics audio
 	CONFIG
 	REQUIRED
 )
 
 target_compile_features(chess PRIVATE cxx_std_20)
 target_compile_definitions(chess PRIVATE SFML_DYNAMIC)
-target_link_libraries(chess PRIVATE sfml-window sfml-graphics sfml-system sfml-audio sfml-main)
+target_link_libraries(chess PRIVATE sfml-window sfml-graphics sfml-system sfml-audio)
 
 #Move generation library
 target_link_libraries(chess PRIVATE MoveGeneration)
 target_include_directories(chess PRIVATE "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/include")
 
-find_package(Boost COMPONENTS process CONFIG REQUIRED)
+find_package(Boost 1.79.0 COMPONENTS process CONFIG REQUIRED)
 target_link_libraries(chess PRIVATE Boost::process)

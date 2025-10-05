@@ -6,6 +6,7 @@
 
 #include "MoveGeneration.h"
 #include "MagicNumbers.h"
+#include <iostream>
 
 #include <thread>
 
@@ -22,10 +23,16 @@ Chess::Chess(sf::Vector2u window_size, std::string fen, GameMode mode)
 {
     window.setFramerateLimit(60.0f);
 
-	if(std::filesystem::exists("../data"))
-		this->data_dir = "../data";
+	#ifndef NDEBUG
+		std::cout << "Current execution dir: " << std::filesystem::current_path() << std::endl;
+	#endif
+
+	if(std::filesystem::exists("Data"))
+		this->data_dir = "Data";
+	else if(std::filesystem::exists("../Data"))
+		this->data_dir = "../Data";
 	else
-		this->data_dir = "data";
+		throw std::runtime_error("Could not find data directory");
 
 	this->board = new Board(window_size, this->data_dir);
 
@@ -52,7 +59,16 @@ Chess::Chess(sf::Vector2u window_size, std::string fen, GameMode mode)
 
 	if(mode == GameMode::PlayerVEngine)
 	{
-		this->engine = new EngineChildProcess();
+		try
+		{
+			this->engine = new EngineChildProcess;
+		}
+		catch(std::exception& ex)
+		{
+			std::cerr << "Failed to initialize the engine, defaulting to PvP mode" << std::endl;
+			mode = GameMode::PlayerVPlayer;
+			goto noPVE;
+		}
 
 		//Flip a coin to determine player side
 		std::srand(std::time(NULL));
@@ -71,6 +87,7 @@ Chess::Chess(sf::Vector2u window_size, std::string fen, GameMode mode)
 		}
 	}
 
+noPVE:
 	display();
 	movegen_thread.detach();
 }
@@ -287,12 +304,20 @@ void Chess::display()
 EngineChildProcess::EngineChildProcess()
 	: engine_ready(false)
 {
-	engine_process = bp::child(
-		engine_exe_path,
-		bp::std_in < engine_in,
-		bp::std_out > engine_out,
-		::boost::process::windows::create_no_window);
-	engine_process.detach();
+	try
+	{
+		engine_process = bp::child(
+				engine_exe_path,
+				bp::std_in < engine_in,
+				bp::std_out > engine_out);
+		engine_process.detach();
+	}
+	catch(std::exception& ex)
+	{
+		std::cerr << "Error while creating a child process:\n"
+			<<  ex.what() << std::endl;
+		throw std::runtime_error("");
+	}
 
 	auto check_ready = [this]() {
 		std::string ready_message;
@@ -307,6 +332,9 @@ EngineChildProcess::EngineChildProcess()
 				engine_ready = true;
 				return;
 			}
+
+			//Anything else is an error
+			std::cerr << ready_message << std::endl;
 			throw std::runtime_error(ready_message);
 		}
 	};

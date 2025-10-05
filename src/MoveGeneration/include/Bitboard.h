@@ -39,10 +39,12 @@ constexpr bool read_bit(bitboard& b, bpos pos)
 
 inline bitboard flip_vertical(bitboard b)
 {
-#if defined(__llvm__)
+#if defined(__llvm__) || defined(__GNUC__)
     return __builtin_bswap64( b );
 #elif defined(_MSC_VER)
     return _byteswap_uint64( value );
+#else
+	error "Compiler not supported."
 #endif
 }
 

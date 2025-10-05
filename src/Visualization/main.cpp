@@ -7,11 +7,12 @@
 
 #include "headers/game.h"
 #include <iostream>
+#include <stdexcept>
 #include <thread>
 #include <string>
 
 /// @brief Catch and process all thrown exceptions, that bubble past main
-void terminate_func();
+void terminate_func(std::exception_ptr eptr);
 
 int main()
 {
@@ -26,30 +27,37 @@ int main()
 	spdlog::set_default_logger(new_logger);
 #endif
 
+    std::exception_ptr eptr;
     try
     {
         Chess chess({ 1000, 1000 }, GameMode::PlayerVEngine);
         chess.loop();
     }
-    catch (std::exception ex)
+    catch (...)
     {
-        terminate_func();
+        eptr = std::current_exception();
     }
+    terminate_func(eptr);
 
     return 0;
 }
 
-void terminate_func()
+void terminate_func(std::exception_ptr eptr)
 {
-    std::cerr << "terminate called after throwing an instance of ";
+    std::cerr << "Program was terminated\n";
     try
     {
-        std::rethrow_exception(std::current_exception());
+        std::rethrow_exception(eptr);
     }
+	catch (const std::runtime_error &ex)
+	{
+		std::cerr << "Execution failed due to the following error: \n";
+		std::cerr << ex.what() << std::endl;
+	}
     catch (const std::exception &ex)
     {
-        std::cerr << typeid(ex).name() << std::endl;
-        std::cerr << "  what(): " << ex.what() << std::endl;
+        std::cerr << "The following exception was not caught: " << typeid(ex).name() << std::endl;
+        std::cerr << "Exception details: " << ex.what() << std::endl;
     }
     catch (...)
     {
@@ -60,7 +68,6 @@ void terminate_func()
  #ifdef _WIN32
     MessageBox(NULL, "Failed due to an exception", "Error", MB_OK | MB_ICONERROR);
 #else
-    std::cerr << "[ERROR] Failed due to an exception\n";
 #endif
 
 	std::cerr << "errno: " << errno << ": " << std::strerror(errno) << std::endl;

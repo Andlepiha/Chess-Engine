@@ -2,13 +2,15 @@
 
 #include <stack>
 #include <boost/process.hpp>
+
+#ifdef WIN_32
 #include <boost/process/windows.hpp>
+#include <Windows.h>
+#endif
 
 #include "draw_board.hpp"
 
 #include "MovgenTypes.h"
-
-#include <Windows.h>
 
 using namespace std::chrono_literals;
 namespace bp = boost::process;
@@ -35,7 +37,13 @@ private:
 
 	bp::child engine_process;
 
+#ifdef _WIN32
 	const char* engine_exe_path = ".\\engine.exe";
+#endif
+#ifdef linux
+	const char* engine_exe_path = "./engine";
+#endif
+
 };
 
 class Chess
