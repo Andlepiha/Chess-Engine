@@ -13,7 +13,11 @@
     {
       "name": "openal-soft",
       "version": "1.24.3"
-    }
+    },
+	{
+		"name": "boost",
+		"version": "1.79.0"
+	}
   ],
-  "builtin-baseline": "a62ce77d56ee07513b4b67de1ec2daeaebfae51a"
+  "builtin-baseline": "4b6c50d962cc20aaa3ef457f8ba683b586263cfb"
 }
