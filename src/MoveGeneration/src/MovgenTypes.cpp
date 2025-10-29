@@ -41,10 +41,10 @@ movgen::BoardPosition movgen::board_from_fen(std::string fen)
 
 	movgen::BoardPosition return_pos = {};
 
-	for(unsigned int i = 0; i < movgen::PIECE_NB; i++)
+	for(unsigned int i = 0; i < static_cast<uint>(Piece::PIECE_NB); i++)
 		return_pos.pieces[i] = 0;
 	for(unsigned int i = 0; i < 64; i++)
-		return_pos.squares[i] = movgen::NO_PIECE;
+		return_pos.squares[i] = Piece::NO_PIECE;
 
 	int it = 0;
 	for(int i = 0; i < 8; i++)
@@ -65,52 +65,52 @@ movgen::BoardPosition movgen::board_from_fen(std::string fen)
 			switch(fen[it])
 			{
 			case 'P':
-				bitb::set_bit(&return_pos.pieces[W_PAWN], 63 - (i * 8 + j));
-				return_pos.squares[63 - (i * 8 + j)] = W_PAWN;
+				bitb::set_bit(&return_pos.pieces[static_cast<uint>(Piece::W_PAWN)], 63 - (i * 8 + j));
+				return_pos.squares[63 - (i * 8 + j)] = Piece::W_PAWN;
 				break;
 			case 'p':
-				bitb::set_bit(&return_pos.pieces[B_PAWN], 63 - (i * 8 + j));
-				return_pos.squares[63 - (i * 8 + j)] = B_PAWN;
+				bitb::set_bit(&return_pos.pieces[static_cast<uint>(Piece::B_PAWN)], 63 - (i * 8 + j));
+				return_pos.squares[63 - (i * 8 + j)] = Piece::B_PAWN;
 				break;
 			case 'N':
-				bitb::set_bit(&return_pos.pieces[W_KNIGHT], 63 - (i * 8 + j));
-				return_pos.squares[63 - (i * 8 + j)] = W_KNIGHT;
+				bitb::set_bit(&return_pos.pieces[static_cast<uint>(Piece::W_KNIGHT)], 63 - (i * 8 + j));
+				return_pos.squares[63 - (i * 8 + j)] = Piece::W_KNIGHT;
 				break;
 			case 'n':
-				bitb::set_bit(&return_pos.pieces[B_KNIGHT], 63 - (i * 8 + j));
-				return_pos.squares[63 - (i * 8 + j)] = B_KNIGHT;
+				bitb::set_bit(&return_pos.pieces[static_cast<uint>(Piece::B_KNIGHT)], 63 - (i * 8 + j));
+				return_pos.squares[63 - (i * 8 + j)] = Piece::B_KNIGHT;
 				break;
 			case 'B':
-				bitb::set_bit(&return_pos.pieces[W_BISHOP], 63 - (i * 8 + j));
-				return_pos.squares[63 - (i * 8 + j)] = W_BISHOP;
+				bitb::set_bit(&return_pos.pieces[static_cast<uint>(Piece::W_BISHOP)], 63 - (i * 8 + j));
+				return_pos.squares[63 - (i * 8 + j)] = Piece::W_BISHOP;
 				break;
 			case 'b':
-				bitb::set_bit(&return_pos.pieces[B_BISHOP], 63 - (i * 8 + j));
-				return_pos.squares[63 - (i * 8 + j)] = B_BISHOP;
+				bitb::set_bit(&return_pos.pieces[static_cast<uint>(Piece::B_BISHOP)], 63 - (i * 8 + j));
+				return_pos.squares[63 - (i * 8 + j)] = Piece::B_BISHOP;
 				break;
 			case 'R':
-				bitb::set_bit(&return_pos.pieces[W_ROOK], 63 - (i * 8 + j));
-				return_pos.squares[63 - (i * 8 + j)] = W_ROOK;
+				bitb::set_bit(&return_pos.pieces[static_cast<uint>(Piece::W_ROOK)], 63 - (i * 8 + j));
+				return_pos.squares[63 - (i * 8 + j)] = Piece::W_ROOK;
 				break;
 			case 'r':
-				bitb::set_bit(&return_pos.pieces[B_ROOK], 63 - (i * 8 + j));
-				return_pos.squares[63 - (i * 8 + j)] = B_ROOK;
+				bitb::set_bit(&return_pos.pieces[static_cast<uint>(Piece::B_ROOK)], 63 - (i * 8 + j));
+				return_pos.squares[63 - (i * 8 + j)] = Piece::B_ROOK;
 				break;
 			case 'Q':
-				bitb::set_bit(&return_pos.pieces[W_QUEEN], 63 - (i * 8 + j));
-				return_pos.squares[63 - (i * 8 + j)] = W_QUEEN;
+				bitb::set_bit(&return_pos.pieces[static_cast<uint>(Piece::W_QUEEN)], 63 - (i * 8 + j));
+				return_pos.squares[63 - (i * 8 + j)] = Piece::W_QUEEN;
 				break;
 			case 'q':
-				bitb::set_bit(&return_pos.pieces[B_QUEEN], 63 - (i * 8 + j));
-				return_pos.squares[63 - (i * 8 + j)] = B_QUEEN;
+				bitb::set_bit(&return_pos.pieces[static_cast<uint>(Piece::B_QUEEN)], 63 - (i * 8 + j));
+				return_pos.squares[63 - (i * 8 + j)] = Piece::B_QUEEN;
 				break;
 			case 'K':
-				bitb::set_bit(&return_pos.pieces[W_KING], 63 - (i * 8 + j));
-				return_pos.squares[63 - (i * 8 + j)] = W_KING;
+				bitb::set_bit(&return_pos.pieces[static_cast<uint>(Piece::W_KING)], 63 - (i * 8 + j));
+				return_pos.squares[63 - (i * 8 + j)] = Piece::W_KING;
 				break;
 			case 'k':
-				bitb::set_bit(&return_pos.pieces[B_KING], 63 - (i * 8 + j));
-				return_pos.squares[63 - (i * 8 + j)] = B_KING;
+				bitb::set_bit(&return_pos.pieces[static_cast<uint>(Piece::B_KING)], 63 - (i * 8 + j));
+				return_pos.squares[63 - (i * 8 + j)] = Piece::B_KING;
 				break;
 
 				// This is forward slash(/) this shid does not work with char def
@@ -131,20 +131,23 @@ movgen::BoardPosition movgen::board_from_fen(std::string fen)
 	// Bitboard, representing 1st and last rows
 	constexpr bitboard top_and_bottom = bitb::Rank[0] | bitb::Rank[7];
 	// Test that no pawns are on the first and last rows
-	if(return_pos.pieces[W_PAWN] & top_and_bottom || return_pos.pieces[B_PAWN] & top_and_bottom)
+	if(return_pos.pieces[static_cast<uint>(Piece::W_PAWN)] & top_and_bottom ||
+	   return_pos.pieces[static_cast<uint>(Piece::B_PAWN)] & top_and_bottom)
 	{
 		throw std::runtime_error("Impossible position");
 	}
 
 	// Assign composite bitboards
-	return_pos.pieces[BLACK_PIECES] = return_pos.pieces[B_KING] | return_pos.pieces[B_QUEEN] |
-									  return_pos.pieces[B_ROOK] | return_pos.pieces[B_BISHOP] |
-									  return_pos.pieces[B_KNIGHT] | return_pos.pieces[B_PAWN];
-	return_pos.pieces[WHITE_PIECES] = return_pos.pieces[W_KING] | return_pos.pieces[W_QUEEN] |
-									  return_pos.pieces[W_ROOK] | return_pos.pieces[W_BISHOP] |
-									  return_pos.pieces[W_KNIGHT] | return_pos.pieces[W_PAWN];
-	return_pos.pieces[ALL_PIECES] =
-		return_pos.pieces[BLACK_PIECES] | return_pos.pieces[WHITE_PIECES];
+	return_pos.pieces[(uint)Piece::BLACK_PIECES] =
+		return_pos.pieces[(uint)Piece::B_KING] | return_pos.pieces[(uint)Piece::B_QUEEN] |
+		return_pos.pieces[(uint)Piece::B_ROOK] | return_pos.pieces[(uint)Piece::B_BISHOP] |
+		return_pos.pieces[(uint)Piece::B_KNIGHT] | return_pos.pieces[(uint)Piece::B_PAWN];
+	return_pos.pieces[(uint)Piece::WHITE_PIECES] =
+		return_pos.pieces[(uint)Piece::W_KING] | return_pos.pieces[(uint)Piece::W_QUEEN] |
+		return_pos.pieces[(uint)Piece::W_ROOK] | return_pos.pieces[(uint)Piece::W_BISHOP] |
+		return_pos.pieces[(uint)Piece::W_KNIGHT] | return_pos.pieces[(uint)Piece::W_PAWN];
+	return_pos.pieces[(uint)Piece::ALL_PIECES] =
+		return_pos.pieces[(uint)Piece::BLACK_PIECES] | return_pos.pieces[(uint)Piece::WHITE_PIECES];
 
 	// Scip spaces
 	while(fen[++it] == ' ')
@@ -157,29 +160,28 @@ movgen::BoardPosition movgen::board_from_fen(std::string fen)
 	{
 	}
 
-	unsigned int castling = NO_CASTLING;
+	uint castling = static_cast<uint>(CastlingRights::NO_CASTLING);
 	while(fen[it] != ' ')
 	{
 		switch(fen[it++])
 		{
 		case 'K':
-			castling |= WHITE_SHORT;
+			castling |= static_cast<uint>(CastlingRights::WHITE_SHORT);
 			break;
 		case 'Q':
-			castling |= WHITE_LONG;
+			castling |= static_cast<uint>(CastlingRights::WHITE_LONG);
 			break;
 		case 'k':
-			castling |= BLACK_SHORT;
+			castling |= static_cast<uint>(CastlingRights::BLACK_SHORT);
 			break;
 		case 'q':
-			castling |= BLACK_LONG;
+			castling |= static_cast<uint>(CastlingRights::BLACK_LONG);
 			break;
-
 		default:
-			return_pos.hash->castling_rights = NO_CASTLING;
+			break;
 		}
 	}
-	return_pos.hash->castling_rights = static_cast<CastlingRights>(castling);
+	return_pos.hash->castling_rights = castling;
 
 EnPassant:
 	while(fen[++it] == ' ')
@@ -238,23 +240,23 @@ std::string movgen::board_to_fen(movgen::BoardPosition& pos)
 			movgen::Piece piece = pos.squares[row * 8 + column];
 			movgen::PieceType piece_type = movgen::get_piece_type(piece);
 
-			if (piece == movgen::Piece::NO_PIECE)
+			if(piece == movgen::Piece::NO_PIECE)
 			{
 				emptyConsec++;
 				continue;
 			}
 			movgen::Color piece_color = movgen::get_piece_color(piece);
-			if (emptyConsec != 0)
+			if(emptyConsec != 0)
 			{
 				fen += std::to_string(emptyConsec);
 				emptyConsec = 0;
 			}
 
-			fen += piece_color == movgen::BLACK ?
-				movgen::Move::piece_str[piece_type] :
-				std::toupper(movgen::Move::piece_str[piece_type]);
+			fen += piece_color == Color::BLACK ? piece_str.at(piece_type)
+											   : std::toupper(piece_str.at(piece_type));
 		}
-		if (emptyConsec != 0) {
+		if(emptyConsec != 0)
+		{
 			fen += std::to_string(emptyConsec);
 			emptyConsec = 0;
 		}
@@ -264,28 +266,27 @@ std::string movgen::board_to_fen(movgen::BoardPosition& pos)
 	fen.pop_back();
 	fen += ' ';
 
-	fen += pos.side_to_move == movgen::WHITE ? 'w' : 'b';
+	fen += pos.side_to_move == Color::WHITE ? 'w' : 'b';
 	fen += ' ';
 
-	if(pos.hash->castling_rights & movgen::WHITE_SHORT)
+	if(pos.hash->castling_rights & static_cast<uint>(CastlingRights::WHITE_SHORT))
 		fen += 'K';
-	if(pos.hash->castling_rights & movgen::WHITE_LONG)
+	if(pos.hash->castling_rights & static_cast<uint>(CastlingRights::WHITE_LONG))
 		fen += 'Q';
-	if(pos.hash->castling_rights & movgen::BLACK_SHORT)
+	if(pos.hash->castling_rights & static_cast<uint>(CastlingRights::BLACK_SHORT))
 		fen += 'k';
-	if(pos.hash->castling_rights & movgen::BLACK_LONG)
+	if(pos.hash->castling_rights & static_cast<uint>(CastlingRights::BLACK_LONG))
 		fen += 'q';
 
-	if(pos.hash->castling_rights == movgen::NO_CASTLING)
+	if(pos.hash->castling_rights == static_cast<uint>(CastlingRights::NO_CASTLING))
 		fen += '-';
 	fen += ' ';
 
-	if (pos.hash->en_passant != 0)
-		fen += movgen::Move::squares[pos.hash->en_passant];
+	if(pos.hash->en_passant != 0)
+		fen += squares[pos.hash->en_passant];
 	else
 		fen += '-';
 	fen += ' ';
-
 
 	fen += std::to_string(pos.hash->ply);
 	fen += ' ';
@@ -306,23 +307,25 @@ movgen::PieceType movgen::get_piece_type(BoardPosition& b_pos, bpos pos)
 
 movgen::Color movgen::get_piece_color(movgen::Piece piece)
 {
-	assert(piece != 0);
-	assert(piece <= 14);
-	return static_cast<movgen::Color>(piece >> 3);
+	auto p_uint = static_cast<uint>(piece);
+
+	assert(p_uint != 0);
+	assert(p_uint <= 14);
+	return static_cast<movgen::Color>(p_uint >> 3);
 }
 
 movgen::Move::Move()
-	:Move(movgen::Piece::NO_PIECE, 0, 0)
+	: Move(movgen::Piece::NO_PIECE, 0, 0)
 {
 	this->is_null_instance = true;
 }
 
 movgen::Move::Move(const Move& other)
-	:piece(other.piece)
-	 , from(other.from)
-	 , to(other.to)
-	 , move_data(other.move_data)
-{}
+	: piece(other.piece)
+	, from(other.from)
+	, to(other.to)
+	, move_data(other.move_data)
+{ }
 
 movgen::Move::Move(Piece piece, bpos from, bpos to)
 	: piece(piece)
@@ -331,24 +334,18 @@ movgen::Move::Move(Piece piece, bpos from, bpos to)
 	, move_data(0)
 { }
 
-movgen::Move::Move(Piece piece,
-				   bpos from,
-				   bpos to,
-				   unsigned char capture,
-				   unsigned char promotion,
-				   bool double_move,
-				   bool en_passant,
-				   unsigned char castling)
+movgen::Move::Move(
+	Piece piece, bpos from, bpos to, Piece capture, Piece promotion, bool double_move, bool en_passant, Castling castling)
 	: piece(piece)
 	, from(from)
 	, to(to)
 	, move_data(0)
 {
-	this->move_data |= (capture & 0x0F);
-	this->move_data |= (promotion & 0x0F) << 4;
+	this->move_data |= (static_cast<uint>(capture) & 0x0F);
+	this->move_data |= (static_cast<uint>(promotion) & 0x0F) << 4;
 	this->move_data |= double_move << 8;
 	this->move_data |= en_passant << 9;
-	this->move_data |= castling << 10;
+	this->move_data |= static_cast<uint>(castling) << 10;
 }
 
 movgen::MoveType movgen::Move::get_type() const
@@ -356,17 +353,17 @@ movgen::MoveType movgen::Move::get_type() const
 	assert(!is_null_instance);
 
 	if(this->move_data == 0)
-		return movgen::REGULAR;
+		return MoveType::REGULAR;
 	else if(this->move_data & 0x200)
-		return movgen::EN_PASSANT;
+		return MoveType::EN_PASSANT;
 	else if(this->move_data & 0x0F)
-		return this->move_data & 0xF0 ? movgen::PROMOTION_CAPTURE : movgen::CAPTURE;
+		return this->move_data & 0xF0 ? MoveType::PROMOTION_CAPTURE : MoveType::CAPTURE;
 	else if(this->move_data & 0xF0)
-		return movgen::PROMOTION;
+		return MoveType::PROMOTION;
 	else if(this->move_data & 0x100)
-		return movgen::DOUBLE_MOVE;
+		return MoveType::DOUBLE_MOVE;
 	else
-		return movgen::CASTLING;
+		return MoveType::CASTLING;
 }
 
 movgen::Piece movgen::Move::get_captured() const
@@ -375,17 +372,24 @@ movgen::Piece movgen::Move::get_captured() const
 
 	// En-passant
 	if(this->move_data & 0x200)
-		return movgen::get_piece_from_type(
-			movgen::PAWN, static_cast<movgen::Color>(!movgen::get_piece_color(this->piece)));
+		return movgen::get_piece_from_type(PieceType::PAWN,
+										   static_cast<movgen::Color>(!(bool)movgen::get_piece_color(this->piece)));
 	else
 		return static_cast<movgen::Piece>(this->move_data & 0x0F);
 }
 
-movgen::PieceType movgen::Move::get_promoted() const
+movgen::Piece movgen::Move::get_promoted() const
 {
 	assert(!is_null_instance);
 
-	return static_cast<movgen::PieceType>((this->move_data >> 4) & 0x0F);
+	return static_cast<movgen::Piece>((this->move_data >> 4) & 0x0F);
+}
+
+movgen::Castling movgen::Move::get_castling() const
+{
+	assert(!is_null_instance);
+
+ 	return static_cast<Castling>((this->move_data >> 10) & 0x3);
 }
 
 movgen::Move movgen::Move::return_null()
@@ -400,20 +404,20 @@ movgen::Move::operator std::string() const
 {
 	std::string move_str = squares[from];
 
-	if (this->get_captured() != 0)
+	if(this->get_captured() != Piece::NO_PIECE)
 		move_str += "x";
 
 	move_str += squares[to];
 
-	if (this->get_promoted() != 0)
-		move_str += piece_str[this->get_promoted()];
+	if(this->get_promoted() != Piece::NO_PIECE)
+		move_str += piece_str.at(get_piece_type(this->get_promoted()));
 
 	return move_str;
 }
 
 void movgen::BoardPosition::print()
 {
-    const char* pieces[]{
+	const char* pieces[]{
 		" ", //NO_PIECE
 		"k", //B_KING
 		"q", //B_QUEEN
@@ -436,15 +440,15 @@ void movgen::BoardPosition::print()
 	for(int r = 7; r >= 0; r--)
 	{
 		for(int c = 7; c >= 0; c--)
-        {
-            ret_string += "| ";
-            ret_string += pieces[(uint16_t)this->squares[r * 8 + c]];
-            ret_string += " ";
-        }
-		if (r != 0)
-    		ret_string += "|\n|-------------------------------|\n";
+		{
+			ret_string += "| ";
+			ret_string += pieces[(uint16_t)this->squares[r * 8 + c]];
+			ret_string += " ";
+		}
+		if(r != 0)
+			ret_string += "|\n|-------------------------------|\n";
 	}
-    ret_string += "|\n=================================";
+	ret_string += "|\n=================================";
 
 	std::cout << ret_string << std::endl;
 }

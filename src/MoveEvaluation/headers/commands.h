@@ -1,9 +1,9 @@
 #ifndef COMM_H
 #define COMM_H
 
+#include "MoveGeneration.h"
 #include "MovgenTypes.h"
 #include <vector>
-
 
 void save_position(std::vector<std::string> args);
 void start_search(std::vector<std::string> args);
@@ -32,16 +32,21 @@ static const char* _piece_types[]
     "P",
 };
 
-// Did not save any position
-//I do not want to use _saved_pos as pointer
 static bool _saved_pos_is_null = true;
 static movgen::BoardPosition _saved_pos;
-static std::vector<movgen::Move> _gen_moves;
 
-// Make all moves in the array if possible
+static movgen::Move move_arr[MAX_MOVES];
+static movgen::Move* arr_end = move_arr;
+
+// When suppled with an array of moves, corresponding to a valid game,
+// this function makes these moves and updates the saved position to match
+// the last move in the array
+// Returns an error if finds an impossible move
 template<typename InputIterator>
-static void _make_moves(InputIterator begin, InputIterator end);
-// Generate moves for _saved_pos
-static std::vector<movgen::Move> _generate_moves();
+uint16_t _make_moves(InputIterator begin, InputIterator end);
+
+// Wrapper function to call appropriate function template depending
+// on the current color to move
+static void _generate_moves();
 
 #endif

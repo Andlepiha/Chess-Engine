@@ -10,18 +10,17 @@
 #include <stdexcept>
 #include <string>
 
-void _make_moves(std::vector<std::string>::iterator begin, std::vector<std::string>::iterator end)
+uint16_t _make_moves(std::vector<std::string>::iterator begin, std::vector<std::string>::iterator end)
 {
+	uint16_t move_count = 0;
 	auto iterator = begin;
 
-	std::vector<movgen::Move> cur_moves = _generate_moves();
-	std::vector<movgen::Move> new_moves = cur_moves;
 	while(iterator != end)
 	{
 		bool made_move = false;
 
 		std::string move_string, prom_string;
-//In case of promotion also provide a piece to promote to
+		//In case of promotion also provide a piece to promote to
 		if(iterator->length() > 4)
 		{
 			move_string = iterator->substr(0, iterator->find(':'));
@@ -33,14 +32,14 @@ void _make_moves(std::vector<std::string>::iterator begin, std::vector<std::stri
 		else
 			move_string = iterator->substr(0, iterator->find(':'));
 
-		for(auto& move : new_moves)
+		for(auto* move = move_arr; move != arr_end; move++)
 		{
-			if((std::string(_squares[move.from]) + (std::string(_squares[move.to]))) == move_string)
+			if((std::string(_squares[move->from]) + (std::string(_squares[move->to]))) == move_string)
 			{
-				if(prom_string != "" && _piece_types[move.get_promoted()] != prom_string)
+				if(prom_string != "" && _piece_types[(uint)move->get_promoted()] != prom_string)
 					continue;
 
-				movgen::make_move(&_saved_pos, move, &new_moves);
+				arr_end = movgen::make_move(&_saved_pos, *move, move_arr);
 				made_move = true;
 				break;
 			}
@@ -52,9 +51,10 @@ void _make_moves(std::vector<std::string>::iterator begin, std::vector<std::stri
 			throw std::runtime_error("Specified move not found");
 		}
 		iterator++;
+		move_count++;
 	}
 
-	_gen_moves = cur_moves;
+	return move_count;
 }
 
 void save_position(std::vector<std::string> args)
@@ -109,11 +109,9 @@ void save_position(std::vector<std::string> args)
 			printf("Error: %s\n", e.what());
 		}
 	}
-
+	else
+		_generate_moves();
 	//_saved_pos.print();
-
-	_gen_moves.clear();
-	_gen_moves = _generate_moves();
 }
 
 void start_search(std::vector<std::string> args)
@@ -130,7 +128,7 @@ void start_search(std::vector<std::string> args)
 		{
 			if(args.size() < 2)
 				throw std::runtime_error("Please provide a depth value");
-			auto best_move = minmax_best(&_saved_pos, _gen_moves, static_cast<uint16_t>(atoi(args[1].c_str())));
+			auto best_move = minmax_best(&_saved_pos, move_arr, arr_end, static_cast<uint16_t>(atoi(args[1].c_str())));
 			printf("%s: %.1f\n", std::string(std::get<1>(best_move)).c_str(), std::get<0>(best_move));
 			//minmax_eval(&_saved_pos, _gen_moves, static_cast<uint16_t>(atoi(args[1].c_str())));
 		}
@@ -154,18 +152,15 @@ void start_search(std::vector<std::string> args)
 	}
 }
 
-std::vector<movgen::Move> _generate_moves()
+void _generate_moves()
 {
 	if(_saved_pos_is_null)
 		throw std::runtime_error("Please initialise a position\n");
 
-	std::vector<movgen::Move> pseudo_moves;
-	_saved_pos.side_to_move == movgen::WHITE
-		? movgen::generate_all_moves<movgen::WHITE, movgen::GenType::ALL_MOVES>(_saved_pos, &pseudo_moves)
-		: movgen::generate_all_moves<movgen::BLACK, movgen::GenType::ALL_MOVES>(_saved_pos, &pseudo_moves);
-	std::vector<movgen::Move> legal_moves = movgen::get_legal_moves(_saved_pos, pseudo_moves);
-
-	return legal_moves;
+	if(_saved_pos.side_to_move == movgen::Color::WHITE)
+		arr_end = movgen::generate_all_moves<movgen::Color::WHITE, movgen::GenType::LEGAL>(_saved_pos, move_arr);
+	else
+		arr_end = movgen::generate_all_moves<movgen::Color::BLACK, movgen::GenType::LEGAL>(_saved_pos, move_arr);
 }
 
 const std::string fen_strings[]{
@@ -203,35 +198,36 @@ const char* squares[]{
 
 
 uint64_t count_moves(movgen::BoardPosition& initial,
-					 std::vector<movgen::Move>* cur_moves,
+					 movgen::Move* move_arr,
+					 movgen::Move* arr_end,
 					 unsigned int depth,
 					 bool toplevel = false)
 {
 	if(depth == 1)
 	{
 		if(toplevel)
-			for(auto& move : *cur_moves)
-				printf("%s%s: %u\n", squares[move.from], squares[move.to], 1);
-		return cur_moves->size();
+			for(auto move = move_arr; move != arr_end; move++)
+				printf("%s%s: %u\n", squares[move->from], squares[move->to], 1);
+		return arr_end - move_arr;
 	}
 
-	std::vector<movgen::Move> new_moves;
+	movgen::Move new_arr[MAX_MOVES];
+	movgen::Move* new_arr_end;
 
 	uint64_t move_count = 0;
-	for(auto& move : *cur_moves)
+	for(auto move = move_arr; move != arr_end; move++)
 	{
-		movgen::make_move(&initial, move, &new_moves);
+		new_arr_end = movgen::make_move(&initial, *move, &new_arr[0]);
 
-		if(movgen::check_game_state(&initial, new_moves) == movgen::GAME_CONTINUES)
+		if(movgen::check_game_state(&initial, new_arr, new_arr_end) == movgen::GameStatus::GAME_CONTINUES)
 		{
-			auto counted = count_moves(initial, &new_moves, depth - 1);
+			auto counted = count_moves(initial, &new_arr[0], new_arr_end, depth - 1);
 			move_count += counted;
 
 			if(toplevel)
-				printf("%s%s: %llu\n", squares[move.from], squares[move.to], counted);
+				printf("%s%s: %lu\n", squares[move->from], squares[move->to], counted);
 		}
-		movgen::undo_move(&initial, move);
-		new_moves.clear();
+		movgen::undo_move(&initial, *move);
 	}
 
 	return move_count;
@@ -242,14 +238,14 @@ void check_position(movgen::BoardPosition initial_position, size_t depth, std::s
 
 	printf("===============%s===============\n", pos_name.c_str());
 
-	std::vector<movgen::Move> cur_moves;
-	initial_position.side_to_move == movgen::WHITE
-		? movgen::generate_all_moves<movgen::WHITE,movgen::GenType::ALL_MOVES>(initial_position, &cur_moves)
-		: movgen::generate_all_moves<movgen::BLACK,movgen::GenType::ALL_MOVES>(initial_position, &cur_moves);
-	std::vector<movgen::Move> legal_moves = movgen::get_legal_moves(initial_position, cur_moves);
-	cur_moves = legal_moves;
+	movgen::Move cur_move_arr[MAX_MOVES];
+	movgen::Move* cur_move_arr_end;
 
-	uint64_t counted = count_moves(initial_position, &cur_moves, depth, true);
+	initial_position.side_to_move == movgen::Color::WHITE
+		? cur_move_arr_end = movgen::generate_all_moves<movgen::Color::WHITE,movgen::GenType::LEGAL>(initial_position, cur_move_arr)
+		: cur_move_arr_end = movgen::generate_all_moves<movgen::Color::BLACK,movgen::GenType::LEGAL>(initial_position, cur_move_arr);
+
+	uint64_t counted = count_moves(initial_position, cur_move_arr, cur_move_arr_end, depth, true);
 
 	if (expected_reached != 0)
 	{

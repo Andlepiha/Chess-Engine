@@ -80,26 +80,26 @@ private:
 // Returns 1 if moves should be swapped and 0 if they shouldn't
 bool cmp_moves(movgen::Move lhs, movgen::Move rhs);
 // Sort moves according to cmp_moves function
-// Places best moves on top
-void sort_moves(std::vector<movgen::Move>* moves);
+// Places most likely best moves on top
+void sort_moves(movgen::Move* move_arr, movgen::Move* arr_end);
 
 // Return only evaluation
-float minmax_eval(movgen::BoardPosition* pos, std::vector<movgen::Move>& gen_moves, uint16_t depth);
+float minmax_eval(movgen::BoardPosition* pos, movgen::Move* move_arr, movgen::Move* arr_end, uint16_t depth);
 // Return best move adn it's eval
 std::tuple<float, movgen::Move>
-minmax_best(movgen::BoardPosition* pos, std::vector<movgen::Move>& gen_moves, uint16_t depth);
+minmax_best(movgen::BoardPosition* pos, movgen::Move* move_arr, movgen::Move* arr_end, uint16_t depth);
 // Return all moves and their evals
 std::vector<std::tuple<float, movgen::Move>>
-minmax_all(movgen::BoardPosition* pos, std::vector<movgen::Move>& gen_moves, uint16_t depth);
+minmax_all(movgen::BoardPosition* pos, movgen::Move* move_arr, movgen::Move* arr_end, uint16_t depth);
 
 template <movgen::Color col>
 static float
-__minmax(movgen::BoardPosition* pos, std::vector<movgen::Move>* gen_moves,
+_minmax(movgen::BoardPosition* pos, movgen::Move* move_arr, movgen::Move* arr_end,
 		uint16_t depth, float alpha, float beta _LOG_NODE_ARG_DEF);
 
 template <movgen::Color col>
 static float _minmax_captures(movgen::BoardPosition* pos, float alpha, float beta _LOG_NODE_ARG_DEF);
 
-	// Return eval, if the game ended
-	bool eval_if_game_ended(movgen::GameStatus status, float* eval);
-bool eval_if_game_ended(movgen::BoardPosition* pos, std::vector<movgen::Move>& gen_moves, float* eval);
+// Return eval, if the game ended
+constexpr bool eval_if_game_ended(movgen::GameStatus status, float* eval);
+bool eval_if_game_ended(movgen::BoardPosition* pos, movgen::Move* move_arr, movgen::Move* arr_end, float* eval);

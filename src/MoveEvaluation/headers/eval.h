@@ -8,17 +8,17 @@ static constexpr float piece_val(movgen::PieceType piece)
 {
 	switch (piece)
 	{
-		case movgen::KING:
+		case movgen::PieceType::KING:
 			return 0;
-		case movgen::QUEEN:
+		case movgen::PieceType::QUEEN:
 			return 8.0;
-		case movgen::ROOK:
+		case movgen::PieceType::ROOK:
 			return 5.0;
-		case movgen::BISHOP:
+		case movgen::PieceType::BISHOP:
 			return 3.2;
-		case movgen::KNIGHT:
+		case movgen::PieceType::KNIGHT:
 			return 3.0;
-		case movgen::PAWN:
+		case movgen::PieceType::PAWN:
 			return 1.0;
 		default:
 			return INFINITY;

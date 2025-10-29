@@ -31,7 +31,8 @@ const char* squares[]{
 };
 
 uint64_t count_moves(movgen::BoardPosition& initial,
-					 std::vector<movgen::Move>* cur_moves,
+					 movgen::Move* move_arr,
+					 movgen::Move* arr_end,
 					 unsigned int depth,
 					 bool toplevel = false);
 
@@ -43,7 +44,13 @@ int main(int argc, char* argv[])
 	init_thread1.detach();
 	init_thread2.join();
 
+	if(argc < 2)
+	{
+		printf("Please specify the test index:\n./perft [TEST_INDEX] [OPTIONS]\n");
+		return -1;
+	}
 	uint16_t test_index = std::atoi(argv[1]);
+
 	const std::string* fen_string = &fen_strings[test_index];
 	const std::vector<uint64_t>* pos_num = &positions_reached[test_index];
 
@@ -56,30 +63,28 @@ int main(int argc, char* argv[])
 	if(argc > 2)
 		depth = std::atoi(argv[2]);
 
-	std::vector<movgen::Move> cur_moves;
-	initial_position.side_to_move == movgen::WHITE
-		? movgen::generate_all_moves<movgen::WHITE,movgen::GenType::ALL_MOVES>(initial_position, &cur_moves)
-		: movgen::generate_all_moves<movgen::BLACK,movgen::GenType::ALL_MOVES>(initial_position, &cur_moves);
-	std::vector<movgen::Move> legal_moves = movgen::get_legal_moves(initial_position, cur_moves);
-	cur_moves = legal_moves;
+	movgen::Move initial_move_arr[MAX_MOVES];
+	movgen::Move* initial_move_arr_end;
+
+	initial_position.side_to_move == movgen::Color::WHITE
+		? initial_move_arr_end = movgen::generate_all_moves<movgen::Color::WHITE,movgen::GenType::LEGAL>(initial_position, &initial_move_arr[0])
+		: initial_move_arr_end = movgen::generate_all_moves<movgen::Color::BLACK,movgen::GenType::LEGAL>(initial_position, &initial_move_arr[0]);
 
 	// If any moves are specified as additional arguments, make these moves
 	int initial_depth = 0;
 	for(int i = 3; i < argc; i++)
 	{
-		std::vector<movgen::Move> new_moves = cur_moves;
-		for(auto& move : new_moves)
+		for(auto move = initial_move_arr; move != initial_move_arr_end; move++)
 		{
-			if((std::string(squares[move.from]) + (std::string(squares[move.to]))) == argv[i])
+			if((std::string(squares[move->from]) + (std::string(squares[move->to]))) == argv[i])
 			{
-				movgen::make_move(&initial_position, move, &new_moves);
+				initial_move_arr_end = movgen::make_move(&initial_position, *move, initial_move_arr_end);
 				break;
 			}
 		}
-		cur_moves = new_moves;
 
 		depth--;
-		initial_depth = depth - 1;
+		initial_depth++;
 	}
 
 	for(int i = initial_depth; i < depth; i++)
@@ -87,44 +92,48 @@ int main(int argc, char* argv[])
 		printf("Depth: %d\n", i + 1);
 
 		if(depth == 1)
-			for(auto& move : cur_moves)
-				printf("%s%s: %u\n", squares[move.from], squares[move.to], 1);
+			for(auto move = initial_move_arr; move != initial_move_arr_end; move++)
+				printf("%s: %u\n", std::string(*move).c_str(), 1);
 
-		uint64_t counted = count_moves(initial_position, &cur_moves, i + 1, true);
-		printf("\nNodes reached: %llu\n\n", counted);
+		uint64_t counted = count_moves(initial_position, initial_move_arr, initial_move_arr_end, i + 1, true);
+		printf("\nNodes reached: %lu\n\n", counted);
 
 		if(argc < 4 && counted != (*pos_num)[i])
+		{
+			printf("Test failed, expected result: %lu\n", (*pos_num)[i]);
 			return -1;
+		}
 	}
 
 	return 0;
 }
 
 uint64_t count_moves(movgen::BoardPosition& initial,
-					 std::vector<movgen::Move>* cur_moves,
+					 movgen::Move* move_arr,
+					 movgen::Move* arr_end,
 					 unsigned int depth,
 					 bool toplevel)
 {
 	if(depth == 1)
-		return cur_moves->size();
+		return arr_end - move_arr;
 
-	std::vector<movgen::Move> new_moves;
+	movgen::Move new_move_arr[MAX_MOVES];
+	movgen::Move* new_move_arr_end;
 
 	uint64_t move_count = 0;
-	for(auto& move : *cur_moves)
+	for(auto move = move_arr; move != arr_end; move++)
 	{
-		movgen::make_move(&initial, move, &new_moves);
+		new_move_arr_end = movgen::make_move<movgen::GenType::LEGAL>(&initial, *move, &new_move_arr[0]);
 
-		if(movgen::check_game_state(&initial, new_moves) == movgen::GAME_CONTINUES)
+		if(movgen::check_game_state(&initial, new_move_arr, new_move_arr_end) == movgen::GameStatus::GAME_CONTINUES)
 		{
-			auto counted = count_moves(initial, &new_moves, depth - 1);
+			auto counted = count_moves(initial, &new_move_arr[0], new_move_arr_end, depth - 1);
 			move_count += counted;
 
 			if(toplevel)
-				printf("%s%s: %llu\n", squares[move.from], squares[move.to], counted);
+				printf("%s: %lu\n", std::string(*move).c_str(), counted);
 		}
-		movgen::undo_move(&initial, move);
-		new_moves.clear();
+		movgen::undo_move(&initial, *move);
 	}
 
 	return move_count;

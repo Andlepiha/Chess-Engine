@@ -9,12 +9,11 @@
 #endif
 
 #include "draw_board.hpp"
-
 #include "MovgenTypes.h"
+#include "MoveGeneration.h"
 
 using namespace std::chrono_literals;
 namespace bp = boost::process;
-
 
 enum class GameMode {
     PlayerVPlayer,
@@ -60,6 +59,8 @@ private:
 	bool players_turn = false;
 
 	void handle_engine_move();
+	void undo_move();
+	void move_piece(movgen::Move move);
 
     const char *fen_string;
     const sf::Color bg_color = sf::Color(255, 255, 240);
@@ -71,17 +72,18 @@ private:
 
     movgen::BoardPosition position;
 
+	// List of all the moves preciding the current position
     std::stack<movgen::Move> prev_moves;
-    std::vector<movgen::Move>* cur_moves;
-    std::vector<movgen::Move> selected_piece_moves;
+	std::vector<movgen::Move> selected_piece_moves;
+
+	// All moves possible in a current position
+    movgen::Move move_arr[MAX_MOVES];
+	// Pointer to the end of an array of moves(assigned part only)
+	movgen::Move* arr_end;
 
     void handle_event(sf::Event ev);
 
-    //Handle event subfunctions
-    void reset_move();
-
     void handle_left_button_press();
-    void move_piece(movgen::Move move);
     void update_piece_moves_highlight();
 
     void handle_resized_event(sf::Event::SizeEvent size);

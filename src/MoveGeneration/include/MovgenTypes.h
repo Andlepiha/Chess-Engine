@@ -5,11 +5,16 @@
 #include <cstdint>
 #include <regex>
 #include <string>
+#include <unordered_map>
 #include <vector>
+
+// Max stored moves for current position
+#define MAX_MOVES 256
 
 namespace movgen
 {
-enum PieceType
+
+enum class PieceType
 {
 	NO_PIECE_TYPE,
 	KING,
@@ -20,19 +25,19 @@ enum PieceType
 	PAWN,
 	ANY,
 
-	PIECE_TYPE_NB = 8,
+	PIECE_TYPE_NB,
 };
 
-enum Piece
+enum class Piece
 {
 	NO_PIECE,
-	B_KING = KING,
+	B_KING = static_cast<int>(PieceType::KING),
 	B_QUEEN,
 	B_ROOK,
 	B_BISHOP,
 	B_KNIGHT,
 	B_PAWN,
-	W_KING = KING + 8,
+	W_KING = static_cast<int>(PieceType::KING) + 8,
 	W_QUEEN,
 	W_ROOK,
 	W_BISHOP,
@@ -45,13 +50,13 @@ enum Piece
 	PIECE_NB = 17
 };
 
-enum Color
+enum class Color
 {
 	BLACK,
 	WHITE
 };
 
-enum GameStatus
+enum class GameStatus
 {
 	GAME_CONTINUES,
 	DRAW,
@@ -59,7 +64,14 @@ enum GameStatus
 	BLACK_WINS
 };
 
-enum CastlingRights
+enum class Castling
+{
+	NO_CASTLING = 0,
+	SHORT_CASTLE = 1,
+	LONG_CASTLE = 2
+};
+
+enum class CastlingRights
 {
 	NO_CASTLING = 0,
 	WHITE_SHORT = 0b0001,
@@ -76,7 +88,7 @@ enum CastlingRights
 	CASTLING_NB
 };
 
-enum MoveType
+enum class MoveType
 {
 	REGULAR,
 	CAPTURE,
@@ -90,6 +102,7 @@ enum MoveType
 enum class GenType
 {
 	ALL_MOVES,
+	LEGAL,
 	QUIETS,
 	CAPTURES,
 	PROMOTIONS,
@@ -153,7 +166,7 @@ struct BoardPosition
 {
 	~BoardPosition();
 
-	bitboard pieces[PIECE_NB];
+	bitboard pieces[static_cast<uint>(Piece::PIECE_NB)];
 	Piece squares[64];
 
 	// Determines current side to move
@@ -174,6 +187,23 @@ inline const char* fen_regex_string = "\\s*^(((?:[rnbqkpRNBQKP1-8]+\\/){7})[rnbq
 BoardPosition board_from_fen(std::string fen);
 std::string board_to_fen(BoardPosition& pos);
 
+static constexpr const char* const squares[]{
+	"h1", "g1", "f1", "e1", "d1", "c1", "b1", "a1", "h2", "g2", "f2", "e2", "d2",
+		"c2", "b2", "a2", "h3", "g3", "f3", "e3", "d3", "c3", "b3", "a3", "h4", "g4",
+		"f4", "e4", "d4", "c4", "b4", "a4", "h5", "g5", "f5", "e5", "d5", "c5", "b5",
+		"a5", "h6", "g6", "f6", "e6", "d6", "c6", "b6", "a6", "h7", "g7", "f7", "e7",
+		"d7", "c7", "b7", "a7", "h8", "g8", "f8", "e8", "d8", "c8", "b8", "a8",
+};
+static const std::unordered_map<PieceType, char> piece_str = {
+	{PieceType::NO_PIECE_TYPE, 0},
+	{PieceType::KING,   'k'},
+	{PieceType::QUEEN,  'q'},
+	{PieceType::ROOK,   'r'},
+	{PieceType::BISHOP, 'b'},
+	{PieceType::KNIGHT, 'n'},
+	{PieceType::PAWN,   'p'},
+};
+
 class Move
 {
 public:
@@ -181,6 +211,30 @@ public:
 	bpos from;
 	bpos to;
 
+	Move();
+	Move(Piece piece, bpos from, bpos to);
+	// If you have to set move_data
+	Move(Piece piece,
+		 bpos from,
+		 bpos to,
+		 Piece capture,
+		 Piece promotion = Piece::NO_PIECE,
+		 bool double_move = false,
+		 bool en_passant = false,
+		 Castling castling = Castling::NO_CASTLING);
+	Move(const Move& other);
+
+	MoveType get_type() const;
+	Piece get_captured() const;
+	Piece get_promoted() const;
+	Castling get_castling() const;
+
+	operator std::string() const;
+
+	bool is_null_instance = false;
+	static Move return_null();
+
+private:
 	// Stores addition data about the move: piece captured(if any), promotion(if
 	// any), etc... Data stored in order from LSb to MSb: Capture(4 bits):
 	//      0 -- No capture
@@ -203,37 +257,6 @@ public:
 	//
 	// Note: there is no validity check
 	uint16_t move_data;
-
-	Move();
-	Move(Piece piece, bpos from, bpos to);
-	Move(Piece piece,
-		 bpos from,
-		 bpos to,
-		 unsigned char capture,
-		 unsigned char promotion = 0,
-		 bool double_move = 0,
-		 bool en_passant = 0,
-		 unsigned char castling = 0);
-	Move(const Move& other);
-
-	MoveType get_type() const;
-	Piece get_captured() const;
-	PieceType get_promoted() const;
-
-	static constexpr const char* const squares[]{
-		"h1", "g1", "f1", "e1", "d1", "c1", "b1", "a1", "h2", "g2", "f2", "e2", "d2",
-		"c2", "b2", "a2", "h3", "g3", "f3", "e3", "d3", "c3", "b3", "a3", "h4", "g4",
-		"f4", "e4", "d4", "c4", "b4", "a4", "h5", "g5", "f5", "e5", "d5", "c5", "b5",
-		"a5", "h6", "g6", "f6", "e6", "d6", "c6", "b6", "a6", "h7", "g7", "f7", "e7",
-		"d7", "c7", "b7", "a7", "h8", "g8", "f8", "e8", "d8", "c8", "b8", "a8",
-	};
-	static constexpr char const piece_str[]{
-		0, 'k', 'q', 'r', 'b', 'n', 'p'
-	};
-	operator std::string() const;
-
-	bool is_null_instance = false;
-	static Move return_null();
 };
 
 Piece get_piece(BoardPosition& b_pos, bpos pos);
@@ -242,26 +265,26 @@ constexpr movgen::PieceType get_piece_type(movgen::Piece piece)
 {
 	switch(piece)
 	{
-	case movgen::B_KING:
-	case movgen::W_KING:
-		return movgen::KING;
-	case movgen::B_QUEEN:
-	case movgen::W_QUEEN:
-		return movgen::QUEEN;
-	case movgen::B_ROOK:
-	case movgen::W_ROOK:
-		return movgen::ROOK;
-	case movgen::B_BISHOP:
-	case movgen::W_BISHOP:
-		return movgen::BISHOP;
-	case movgen::B_KNIGHT:
-	case movgen::W_KNIGHT:
-		return movgen::KNIGHT;
-	case movgen::B_PAWN:
-	case movgen::W_PAWN:
-		return movgen::PAWN;
+	case movgen::Piece::B_KING:
+	case movgen::Piece::W_KING:
+		return movgen::PieceType::KING;
+	case movgen::Piece::B_QUEEN:
+	case movgen::Piece::W_QUEEN:
+		return movgen::PieceType::QUEEN;
+	case movgen::Piece::B_ROOK:
+	case movgen::Piece::W_ROOK:
+		return movgen::PieceType::ROOK;
+	case movgen::Piece::B_BISHOP:
+	case movgen::Piece::W_BISHOP:
+		return movgen::PieceType::BISHOP;
+	case movgen::Piece::B_KNIGHT:
+	case movgen::Piece::W_KNIGHT:
+		return movgen::PieceType::KNIGHT;
+	case movgen::Piece::B_PAWN:
+	case movgen::Piece::W_PAWN:
+		return movgen::PieceType::PAWN;
 	default:
-		return movgen::NO_PIECE_TYPE;
+		return movgen::PieceType::NO_PIECE_TYPE;
 	}
 }
 
@@ -273,20 +296,20 @@ constexpr movgen::Piece get_piece_from_type(movgen::PieceType type, movgen::Colo
 {
 	switch(type)
 	{
-	case movgen::KING:
-		return c == movgen::WHITE ? movgen::W_KING : movgen::B_KING;
-	case movgen::QUEEN:
-		return c == movgen::WHITE ? movgen::W_QUEEN : movgen::B_QUEEN;
-	case movgen::ROOK:
-		return c == movgen::WHITE ? movgen::W_ROOK : movgen::B_ROOK;
-	case movgen::BISHOP:
-		return c == movgen::WHITE ? movgen::W_BISHOP : movgen::B_BISHOP;
-	case movgen::KNIGHT:
-		return c == movgen::WHITE ? movgen::W_KNIGHT : movgen::B_KNIGHT;
-	case movgen::PAWN:
-		return c == movgen::WHITE ? movgen::W_PAWN : movgen::B_PAWN;
+	case movgen::PieceType::KING:
+		return c == movgen::Color::WHITE ? movgen::Piece::W_KING : movgen::Piece::B_KING;
+	case movgen::PieceType::QUEEN:
+		return c == movgen::Color::WHITE ? movgen::Piece::W_QUEEN : movgen::Piece::B_QUEEN;
+	case movgen::PieceType::ROOK:
+		return c == movgen::Color::WHITE ? movgen::Piece::W_ROOK : movgen::Piece::B_ROOK;
+	case movgen::PieceType::BISHOP:
+		return c == movgen::Color::WHITE ? movgen::Piece::W_BISHOP : movgen::Piece::B_BISHOP;
+	case movgen::PieceType::KNIGHT:
+		return c == movgen::Color::WHITE ? movgen::Piece::W_KNIGHT : movgen::Piece::B_KNIGHT;
+	case movgen::PieceType::PAWN:
+		return c == movgen::Color::WHITE ? movgen::Piece::W_PAWN : movgen::Piece::B_PAWN;
 	default:
-		return movgen::NO_PIECE;
+		return movgen::Piece::NO_PIECE;
 	}
 }
 }; // namespace movgen

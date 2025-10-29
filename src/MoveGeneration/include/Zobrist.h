@@ -16,9 +16,9 @@ namespace zobrist
         return x * 0x2545F4914F6CDD1DULL;
     }
 
-    extern uint64_t table[movgen::PIECE_NB][64];
+    extern uint64_t table[static_cast<uint>(movgen::Piece::PIECE_NB)][64];
     extern uint64_t en_passant[8];
-    extern uint64_t castling[movgen::CASTLING_NB];
+    extern uint64_t castling[static_cast<uint>(movgen::CastlingRights::CASTLING_NB)];
     extern uint64_t side;
 
     void init();

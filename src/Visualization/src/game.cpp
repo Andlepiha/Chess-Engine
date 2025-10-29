@@ -18,7 +18,6 @@ Chess::Chess(sf::Vector2u window_size, GameMode mode)
 Chess::Chess(sf::Vector2u window_size, std::string fen, GameMode mode)
 	: fen_string(fen.c_str()),
 	window(sf::VideoMode(window_size.x, window_size.y), "Chess"),
-	cur_moves(new std::vector<movgen::Move>),
 	mode(mode)
 {
     window.setFramerateLimit(60.0f);
@@ -40,20 +39,16 @@ Chess::Chess(sf::Vector2u window_size, std::string fen, GameMode mode)
     window.setIcon(game_icon.getSize().x, game_icon.getSize().y, game_icon.getPixelsPtr());
 	position = movgen::board_from_fen(fen_string);
 
-	std::vector<movgen::Move>* all_moves = new std::vector<movgen::Move>;
-	std::vector<movgen::Move>** legal_moves = &this->cur_moves;
-
-	auto move_generation = [all_moves, legal_moves](movgen::BoardPosition position) {
+	auto move_generation = [this](movgen::BoardPosition position) {
 		// Wait for all modules to initialize
 		while(!movgen::initialized || !bitb::initialized || !movgen::initialized_magics)
 		{
 			std::this_thread::sleep_for(5ms);
 		}
 
-		position.side_to_move == movgen::WHITE
-			? movgen::generate_all_moves<movgen::WHITE, movgen::GenType::ALL_MOVES>(position, all_moves)
-			: movgen::generate_all_moves<movgen::BLACK, movgen::GenType::ALL_MOVES>(position, all_moves);
-		**legal_moves = movgen::get_legal_moves(position, *all_moves);
+		position.side_to_move == movgen::Color::WHITE
+			? this->arr_end = movgen::generate_all_moves<movgen::Color::WHITE, movgen::GenType::LEGAL>(position, move_arr)
+			: this->arr_end = movgen::generate_all_moves<movgen::Color::BLACK, movgen::GenType::LEGAL>(position, move_arr);
 	};
 	std::thread movegen_thread(move_generation, std::ref(this->position));
 
@@ -124,11 +119,11 @@ void Chess::handle_engine_move()
 
 	auto piece = movgen::get_piece(position, from);
 
-	for(auto& move : *cur_moves)
+	for(auto move = move_arr; move != arr_end; move++)
 	{
-		if(move.from == from && move.to == to)
+		if(move->from == from && move->to == to)
 		{
-			move_piece(move);
+			move_piece(*move);
 		}
 	}
 
@@ -150,7 +145,7 @@ void Chess::handle_event(sf::Event ev)
             board->flip_board();
             break;
         case sf::Keyboard::Left:
-            reset_move();
+            undo_move();
             break;
         default:
             break;
@@ -183,15 +178,15 @@ void Chess::handle_event(sf::Event ev)
 	}
 }
 
-void Chess::reset_move()
+void Chess::undo_move()
 {
 	if(!prev_moves.empty())
 	{
 		movgen::undo_move(&position, prev_moves.top());
-		position.side_to_move == movgen::WHITE
-			? movgen::generate_all_moves<movgen::WHITE, movgen::GenType::ALL_MOVES>(position, cur_moves)
-			: movgen::generate_all_moves<movgen::BLACK, movgen::GenType::ALL_MOVES>(position, cur_moves);
-		*cur_moves = movgen::get_legal_moves(position, *cur_moves);
+		position.side_to_move == movgen::Color::WHITE
+			? movgen::generate_all_moves<movgen::Color::WHITE, movgen::GenType::ALL_MOVES>(position, move_arr)
+			: movgen::generate_all_moves<movgen::Color::BLACK, movgen::GenType::ALL_MOVES>(position, move_arr);
+		arr_end = movgen::get_legal_moves(position, move_arr, arr_end);
 
 		prev_moves.pop();
 	}
@@ -223,8 +218,11 @@ void Chess::handle_left_button_press()
 
 void Chess::move_piece(movgen::Move move)
 {
-	movgen::make_move<movgen::GenType::ALL_MOVES>(&position, move, cur_moves);
-	auto game_status = movgen::check_game_state(&position, *cur_moves);
+	// Empty the move array
+	arr_end = move_arr;
+
+	movgen::make_move<movgen::GenType::ALL_MOVES>(&position, move, move_arr);
+	auto game_status = movgen::check_game_state(&position, move_arr, arr_end);
 
 	players_turn ^= 1;
 	prev_moves.push(move);
@@ -232,20 +230,20 @@ void Chess::move_piece(movgen::Move move)
 
 	switch(game_status)
 	{
-		case movgen::GAME_CONTINUES:
+		case movgen::GameStatus::GAME_CONTINUES:
 			if(mode == GameMode::PlayerVEngine && !players_turn)
 			{
 				std::thread th(std::bind(&Chess::handle_engine_move, this));
 				th.detach();
 			}
 			break;
-		case movgen::DRAW:
+		case movgen::GameStatus::DRAW:
 			printf("Draw\n");
 			break;
-		case movgen::BLACK_WINS:
+		case movgen::GameStatus::BLACK_WINS:
 			printf("Black wins\n");
 			break;
-		case movgen::WHITE_WINS:
+		case movgen::GameStatus::WHITE_WINS:
 			printf("White wins\n");
 			break;
 	}
@@ -272,13 +270,13 @@ void Chess::update_piece_moves_highlight()
 	if(selected != -1)
 	{
 		// Check if there is a piece on that square
-		if(position.pieces[movgen::ALL_PIECES] & (1ull << selected))
+		if(position.pieces[static_cast<uint>(movgen::Piece::ALL_PIECES)] & (1ull << selected))
 		{
-			for(auto& move : *cur_moves)
+			for(auto move = move_arr; move != arr_end; move++)
 			{
-				if(move.from == selected)
+				if(move->from == selected)
 				{
-					selected_piece_moves.push_back(move);
+					selected_piece_moves.push_back(*move);
 				}
 			}
 		}
@@ -294,7 +292,16 @@ void Chess::display()
     if (!selected_piece_moves.empty())
         board->draw_piece_moves(&window, selected_piece_moves);
     if (position.info != nullptr && position.info->checks_num > 0)
-        board->draw_check(&window, bitb::pop_lsb(position.pieces[movgen::get_piece_from_type(movgen::KING, position.side_to_move)]));
+		board->draw_check(&window, bitb::pop_lsb(
+			position.pieces[
+				static_cast<uint>(
+					movgen::get_piece_from_type(
+						movgen::PieceType::KING,
+						position.side_to_move
+					)
+				)
+			]
+		));
 	if(!selected_piece_moves.empty())
 		board->draw_piece_moves(&window, selected_piece_moves);
 
