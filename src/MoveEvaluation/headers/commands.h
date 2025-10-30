@@ -5,6 +5,9 @@
 #include "MovgenTypes.h"
 #include <vector>
 
+// Call function asynchronously and pass the result to the callback
+template <class F, class... Args, class C>
+void async_with_callback(F&& func, C&& callback, Args&&... args);
 
 // When suppled with an array of moves, corresponding to a valid game,
 // this function makes these moves and updates the saved position to match

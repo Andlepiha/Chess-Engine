@@ -6,11 +6,25 @@
 
 #include <cstddef>
 #include <cstdio>
+#include <future>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 #include <chrono>
 #include <thread>
+
+template <class F, class... Args, class C>
+void async_with_callback(F&& func, C&& callback, Args&&... args)
+{
+	auto future = std::async(std::launch::async, [&]() {
+		return func(args...);
+	});
+
+	std::thread([future = std::move(future), callback = std::move(callback)]() mutable {
+		auto result = future.get();
+		callback(result);
+	}).detach();
+}
 
 uint16_t _make_moves(std::vector<std::string>::iterator begin, std::vector<std::string>::iterator end)
 {
@@ -157,13 +171,13 @@ void check_position(movgen::BoardPosition initial_position, size_t depth, std::s
 	if (expected_reached != 0)
 	{
 		if(counted != expected_reached)
-			printf("Test failed, expected: %llu, actual: %llu\n", expected_reached, counted);
+			printf("Test failed, expected: %llu, actual: %lu\n", expected_reached, counted);
 		else
 			printf("Test passed\n");
 		printf("\n");
 	}
 	else
-		printf("Nodes reached: %llu\n", counted);
+		printf("Nodes reached: %lu\n", counted);
 }
 
 void start_perft(std::vector<std::string> args)
@@ -242,10 +256,22 @@ ponder:
 	else if(args[0] == "depth")
 	{
 		if(args.size() < 2)
-			goto ponder;
+		{
+			printf("Please specify depth value:\ngo depth [depth]\n");
+			return;
+		}
+		auto depth = static_cast<uint16_t>(atoi(args[1].c_str()));
 
-		auto best_move = minmax_best(&_saved_pos, move_arr, arr_end, static_cast<uint16_t>(atoi(args[1].c_str())));
-		printf("%s: %.1f\n", std::string(std::get<1>(best_move)).c_str(), std::get<0>(best_move));
+		async_with_callback(
+			minmax_best,
+			[&](std::tuple<float, movgen::Move> result) {
+				printf("%s: %.1f\n",
+					std::string(std::get<movgen::Move>(result)).c_str(),
+					std::get<float>(result)
+				);
+			},
+			&_saved_pos, move_arr, arr_end, depth
+		);
 	}
 	else if(args[0] == "nodes")
 	{

@@ -12,6 +12,10 @@
 
 #define fuzzy_equal(val1, val2) std::abs(val1 - val2) < 0.01
 
+std::atomic<size_t> node_count = 0;
+std::atomic<bool> stop_search = false;
+ch::time_point<ch::steady_clock> start_time;
+
 static TranspositionTable _transpostion_table;
 
 void _print_log_tree(std::ostream& out, const std::string& prefix, const _LogTreeNode* node, bool is_last)
@@ -134,123 +138,40 @@ void sort_moves(movgen::Move* move_arr, movgen::Move* arr_end)
 	}
 }
 
-float minmax_eval(movgen::BoardPosition* pos, movgen::Move* move_arr, movgen::Move* arr_end, uint16_t depth = 5)
-{
-
-	if(depth == 0)
-	{
-		if(pos->side_to_move == movgen::Color::WHITE)
-			return eval(*pos);
-		else
-			return -eval(*pos);
-	}
-
-	_ROOT_NODE
-#if LOG_SEARCH == 1
-	_LogTreeNode* _log_node = _root_node.add_child();
-#endif
-
-	float best_value;
-	if(pos->side_to_move == movgen::Color::WHITE)
-		best_value = _minmax<movgen::Color::WHITE>(pos, move_arr, arr_end, depth, -INFINITY, INFINITY _LOG_NODE_ARG);
-	else
-		best_value = _minmax<movgen::Color::BLACK>(pos, move_arr, arr_end, depth, -INFINITY, INFINITY _LOG_NODE_ARG);
-
-	_PRINT_LOG_TO_FILE
-
-	return best_value;
-}
-
-std::tuple<float, movgen::Move> minmax_best(movgen::BoardPosition* pos, movgen::Move* move_arr, movgen::Move* arr_end, uint16_t depth)
+std::tuple<float, movgen::Move> minmax_best(
+		movgen::BoardPosition* pos, movgen::Move* move_arr,
+		movgen::Move* arr_end, uint16_t depth)
 {
 	assert(depth > 0);
 	_transpostion_table.increment_age();
+
+	start_time = ch::steady_clock::now();
+	node_count = 0;
 
 	const movgen::Color col = pos->side_to_move;
 	_ROOT_NODE
 
-	float alpha = -INFINITY, beta = INFINITY;
-	float score;
-	float best_value = -INFINITY;
-	uint16_t it = 0;
+	std::tuple<float, movgen::Move> best_move;
 
-	movgen::Move new_arr[MAX_MOVES];
-	movgen::Move* new_arr_end;
-
-// If not debug, choose randomly among the moves with the best eval, else choose the first move
-#ifdef DEBUG
-	std::vector<uint16_t> best_move_index;
-#else
-	uint16_t best_move_index;
-#endif
-#if LOG_SEARCH == 1
-	_LogTreeNode* _log_node = &_root_node;
-#endif
-
-	sort_moves(move_arr, arr_end);
-	for(auto move = move_arr; move != arr_end; move++)
-	{
-#if LOG_SEARCH
-		std::string move_str = std::string(move);
-#endif
-		new_arr_end = movgen::make_move(pos, *move, &new_arr[0]);
-
-		// Search remaining captures and only then return the score
-		if(depth == 1)
-			if(pos->side_to_move == movgen::Color::WHITE)
-				score = -_minmax_captures<movgen::Color::WHITE>(pos, alpha, beta _LOG_NODE_CHILD_ARG);
-			else
-				score = -_minmax_captures<movgen::Color::BLACK>(pos, alpha, beta _LOG_NODE_CHILD_ARG);
-		else
-		{
-			if(pos->side_to_move == movgen::Color::WHITE)
-				score = -_minmax<movgen::Color::WHITE>(pos, &new_arr[0], new_arr_end, depth - 1, -beta, -alpha _LOG_NODE_CHILD_ARG);
-			else
-				score = -_minmax<movgen::Color::BLACK>(pos, &new_arr[0], new_arr_end, depth - 1, -beta, -alpha _LOG_NODE_CHILD_ARG);
-		}
-		movgen::undo_move(pos, *move);
-
-		if(score > best_value)
-		{
-			best_value = score;
-
-#if LOG_SEARCH == 1
-			_root_node.data = std::format("_: {}", score);
-#endif
-#ifdef DEBUG
-			best_move_index.clear();
-			best_move_index.push_back(it);
-#else
-			best_move_index = it;
-#endif
-			if(score > alpha)
-				alpha = score;
-		}
-#ifdef DEBUG
-		else if(fuzzy_equal(score, best_value))
-			best_move_index.push_back(it);
-#endif
-		if(score >= beta)
-			break;
-
-		it++;
-	}
+	if(pos->side_to_move == movgen::Color::WHITE)
+		best_move = _minmax<movgen::Color::WHITE>(pos, move_arr, arr_end, depth, -INFINITY, INFINITY _LOG_NODE_CHILD_ARG);
+	else
+		best_move = _minmax<movgen::Color::BLACK>(pos, move_arr, arr_end, depth, -INFINITY, INFINITY _LOG_NODE_CHILD_ARG);
 
 	_PRINT_LOG_TO_FILE
 
-#ifdef DEBUG
-	uint16_t final_index = uint16_t(rand() % best_move_index.size());
-	return std::make_tuple(best_value, gen_moves[best_move_index[final_index]]);
-#else
-	return std::make_tuple(best_value, new_arr[best_move_index]);
-#endif
+	return best_move;
 }
 
-std::vector<std::tuple<float, movgen::Move>>
-minmax_all(movgen::BoardPosition* pos, movgen::Move* move_arr, movgen::Move* arr_end, uint16_t depth)
+std::vector<std::tuple<float, movgen::Move>> minmax_all(
+		movgen::BoardPosition* pos, movgen::Move* move_arr,
+		movgen::Move* arr_end, uint16_t depth)
 {
 	assert(depth > 0);
 	_transpostion_table.increment_age();
+
+	start_time = ch::steady_clock::now();
+	node_count = 0;
 
 	std::vector<std::tuple<float, movgen::Move>> move_eval;
 	move_eval.reserve(arr_end - move_arr);
@@ -265,7 +186,12 @@ minmax_all(movgen::BoardPosition* pos, movgen::Move* move_arr, movgen::Move* arr
 
 		movgen::make_move(pos, *move, &new_arr[0]);
 		if(!eval_if_game_ended(pos, new_arr, new_arr_end, &score))
-			score = minmax_eval(pos, &new_arr[0], new_arr_end, depth - 1);
+		{
+			if(pos->side_to_move == movgen::Color::WHITE)
+				score = std::get<float>(_minmax<movgen::Color::WHITE>(pos, &new_arr[0], new_arr_end, depth, -INFINITY, INFINITY));
+			else
+				score = std::get<float>(_minmax<movgen::Color::BLACK>(pos, &new_arr[0], new_arr_end, depth, -INFINITY, INFINITY));
+		}
 		movgen::undo_move(pos, *move);
 
 		move_eval.push_back(std::make_tuple(score, *move));
@@ -275,10 +201,13 @@ minmax_all(movgen::BoardPosition* pos, movgen::Move* move_arr, movgen::Move* arr
 }
 
 template <movgen::Color col>
-float _minmax(movgen::BoardPosition* pos, movgen::Move* move_arr, movgen::Move* arr_end,
-		uint16_t depth, float alpha, float beta _LOG_NODE_ARG_DEF)
+std::tuple<float, movgen::Move> _minmax(
+		movgen::BoardPosition* pos, movgen::Move* move_arr,
+		movgen::Move* arr_end, uint16_t depth,
+		float alpha, float beta _LOG_NODE_ARG_DEF)
 {
 	assert(col == pos->side_to_move);
+
 	// Opposite color
 	constexpr movgen::Color op_col = (col == movgen::Color::WHITE) ? movgen::Color::BLACK : movgen::Color::WHITE;
 
@@ -289,7 +218,7 @@ float _minmax(movgen::BoardPosition* pos, movgen::Move* move_arr, movgen::Move* 
 			switch(tt_entry->type)
 			{
 			case EXACT:
-				return tt_entry->score;
+				return std::make_tuple(tt_entry->score, tt_entry->best_move);
 			case LOWER_BOUND:
 				alpha = std::max(alpha, tt_entry->score);
 				break;
@@ -297,20 +226,19 @@ float _minmax(movgen::BoardPosition* pos, movgen::Move* move_arr, movgen::Move* 
 				beta = std::min(beta, tt_entry->score);
 				break;
 			}
-			if(alpha >= beta) return tt_entry->score;
+
+			if(alpha >= beta)
+				return std::make_tuple(tt_entry->score, tt_entry->best_move);
 		}
 	}
 
 	float score;
-	if(eval_if_game_ended(pos, move_arr, arr_end, &score))
-		return score;
-	float best_value = -INFINITY;
+	float best_score = -INFINITY;
 
 	movgen::Move new_arr[MAX_MOVES];
 	movgen::Move* new_arr_end;
 
 	movgen::Move best_move;
-	sort_moves(move_arr, arr_end);
 	for(auto move = move_arr; move != arr_end; move++)
 	{
 #if LOG_SEARCH
@@ -319,20 +247,28 @@ float _minmax(movgen::BoardPosition* pos, movgen::Move* move_arr, movgen::Move* 
 		if(depth > 1)
 		{
 			new_arr_end = movgen::make_move(pos, *move, &new_arr[0]);
-			score = -_minmax<op_col>(pos, new_arr, arr_end, depth - 1, -beta, -alpha _LOG_NODE_CHILD_ARG);
+			if(eval_if_game_ended(pos, move_arr, arr_end, &score))
+				return std::make_tuple(score, *move);
+
+			sort_moves(new_arr, new_arr_end);
+			score = -std::get<float>(_minmax<op_col>(pos, new_arr, new_arr_end, depth - 1, -beta, -alpha _LOG_NODE_CHILD_ARG));
 		}
 		else
 		{
 			movgen::make_move(pos, *move, nullptr);
+			if(eval_if_game_ended(pos, move_arr, arr_end, &score))
+				return std::make_tuple(score, *move);
+
 			// Search remaining captures and only then return the score
 			score = -_minmax_captures<op_col>(pos, alpha, beta _LOG_NODE_CHILD_ARG);
 		}
 		movgen::undo_move(pos, *move);
+		node_count++;
 
-		if (score > best_value)
+		if (score > best_score)
 		{
 			best_move = *move;
-			best_value = score;
+			best_score = score;
 			if(score > alpha)
 				alpha = score;
 		}
@@ -341,18 +277,20 @@ float _minmax(movgen::BoardPosition* pos, movgen::Move* move_arr, movgen::Move* 
 	}
 
 	NodeType nodeType = EXACT;
-    if (best_value <= alpha) nodeType = UPPER_BOUND;
-    else if (best_value >= beta) nodeType = LOWER_BOUND;
-	_transpostion_table.insert(pos->hash->key, best_value, (uint8_t)depth, nodeType, best_move);
+    if (best_score <= alpha) nodeType = UPPER_BOUND;
+    else if (best_score >= beta) nodeType = LOWER_BOUND;
+	_transpostion_table.insert(pos->hash->key, best_score, (uint8_t)depth, nodeType, best_move);
 
 	_APPEND_SCORE
-	return best_value;
+	return std::make_tuple(best_score, best_move);
 }
 
 // Implement Quiescence Search
 // Search only captures, for indefinite depth
 template <movgen::Color col>
-float _minmax_captures(movgen::BoardPosition* pos, float alpha, float beta _LOG_NODE_ARG_DEF)
+float _minmax_captures(
+		movgen::BoardPosition* pos, float alpha,
+		float beta _LOG_NODE_ARG_DEF)
 {
 	assert(col == pos->side_to_move);
 
@@ -382,8 +320,7 @@ float _minmax_captures(movgen::BoardPosition* pos, float alpha, float beta _LOG_
 	if(score > alpha)
 		alpha = score;
 
-	new_arr_end = movgen::generate_all_moves<col, movgen::GenType::CAPTURES>(*pos, &new_arr[0]);
-	new_arr_end = movgen::get_legal_moves(*pos, &new_arr[0], new_arr_end);
+	new_arr_end = movgen::generate_all_moves<col, movgen::GenType::LEGAL>(*pos, &new_arr[0]);
 
 	sort_moves(&new_arr[0], new_arr_end);
 	for(auto move = new_arr; move != new_arr; move++)
@@ -393,6 +330,8 @@ float _minmax_captures(movgen::BoardPosition* pos, float alpha, float beta _LOG_
 #endif
 		movgen::make_move(pos, *move, nullptr);
 		score = -_minmax_captures<op_col>(pos, -beta, -alpha _LOG_NODE_CHILD_ARG);
+
+		node_count++;
 		movgen::undo_move(pos, *move);
 
         if(score >= beta)
