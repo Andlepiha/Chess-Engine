@@ -9,7 +9,7 @@ float eval(movgen::BoardPosition& pos)
 	// This is needed for negamax framework
 	return (_eval_side<movgen::Color::WHITE>(pos)
 			- _eval_side<movgen::Color::BLACK>(pos))
-			* (static_cast<uint>(pos.side_to_move) * 2 - 1);
+			* (static_cast<int>(pos.side_to_move) * 2 - 1);
 }
 
 template<movgen::Color col>
@@ -45,8 +45,8 @@ float _eval_side(const movgen::BoardPosition& pos)
 
 	//And finnaly add piece square tables
 	float pst = 0.0f;
-	constexpr uint16_t piece_type_from = static_cast<uint>(movgen::PieceType::KING) + us;
-	constexpr uint16_t piece_type_to = static_cast<uint>(movgen::PieceType::PAWN) + us;
+	constexpr uint16_t piece_type_from = static_cast<uint>(movgen::PieceType::KING);
+	constexpr uint16_t piece_type_to = static_cast<uint>(movgen::PieceType::PAWN);
 	for(uint16_t piece_type = piece_type_from; piece_type < piece_type_to; piece_type++)
 		for(bpos square : bitb::BitscanIterator(pos.pieces[piece_type + us]))
 			pst += col == movgen::Color::WHITE ?

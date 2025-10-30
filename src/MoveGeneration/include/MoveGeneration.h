@@ -54,7 +54,7 @@ namespace movgen
 
 	/// Pass in move_arr pointer to auto generate new set of moves for the resulting position
 	/// if this is not required, passing nullptr skips generation
-	template <movgen::GenType gen_type = movgen::GenType::ALL_MOVES>
+	template <movgen::GenType gen_type = movgen::GenType::LEGAL>
 	movgen::Move* make_move(movgen::BoardPosition* pos, movgen::Move& move, movgen::Move* move_arr);
 
 	void undo_move(movgen::BoardPosition* pos, movgen::Move& move);
