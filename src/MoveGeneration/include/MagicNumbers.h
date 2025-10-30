@@ -38,7 +38,6 @@ namespace movgen
     ///
 
     void init_magics();
-    extern std::atomic_bool initialized_magics;
     /// @brief Fill the moves table for a given magic and search for a hash
     /// collisions to check if a magic is valid
     /// @return returns 1 if magic is valid, 0 if there is hash collisions

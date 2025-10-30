@@ -9,7 +9,7 @@
 #include "headers/commands.h"
 #include "MoveGeneration.h"
 
-constexpr uint16_t TABLE_SIZE = 4;
+constexpr uint16_t TABLE_SIZE = 9;
 
 void print_help(std::vector<std::string> args);
 
@@ -18,11 +18,17 @@ struct CommandStruct
 {
     const char* command;
     void (*commandHandler)(std::vector<std::string> args);
+	bool execute_async = false;
 } commandTable[TABLE_SIZE] = {
-    { "position", save_position },
-    { "search", start_search },
-    { "perft", start_perft },
-    { "help", print_help }
+	{ "uci", uci },
+	{ "debug", debug },
+	{ "isready", isready },
+	{ "setoption", setoption },
+	{ "register", reg },
+	{ "ucinewgame", ucinewgame },
+    { "position", position },
+	{ "go", go, true },
+	{ "stop", stop },
 };
 
 std::vector<std::string> split_string(std::string str, std::string delim)
@@ -44,12 +50,9 @@ int main() {
     std::thread init_thread1(movgen::init);
 	std::thread init_thread2(bitb::init);
 
-    srand(time(NULL));
-
-    printf("Initializing...\n");
 	init_thread1.detach();
-	init_thread2.join();
-    printf("Engine is ready, input a command\n");
+	init_thread2.detach();
+	srand(time(NULL));
 
     while(true)
     {
@@ -76,14 +79,12 @@ int main() {
                 } catch (std::exception e) {
                     std::cout << e.what() << std::endl;
                 }
-                // Break out of the loop and skip not found statement
                 goto LoopEnd;
             }
         }
         // Command was not found (did not break from the loop)
         printf("Command \"%s\" was not found\n", command.c_str());
-    LoopEnd:
-        continue;
+LoopEnd:
     }
 
     return 0;

@@ -13,6 +13,8 @@ namespace movgen
 
 	void init();
 	extern std::atomic_bool initialized;
+	extern std::atomic_bool initialized_magics;
+	bool is_initialized();
 
 	// Generates pseudo legal moves
 	// Instanciated for every piece type except a king and a pawn

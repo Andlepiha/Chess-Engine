@@ -5,7 +5,18 @@
 #include "MovgenTypes.h"
 #include <vector>
 
-void save_position(std::vector<std::string> args);
+
+// When suppled with an array of moves, corresponding to a valid game,
+// this function makes these moves and updates the saved position to match
+// the last move in the array
+// Returns an error if finds an impossible move
+template<typename InputIterator>
+uint16_t _make_moves(InputIterator begin, InputIterator end);
+
+// Wrapper function to call appropriate function template depending
+// on the current color to move
+static void _generate_moves();
+
 void start_search(std::vector<std::string> args);
 void start_perft(std::vector<std::string> args);
 
@@ -38,15 +49,14 @@ static movgen::BoardPosition _saved_pos;
 static movgen::Move move_arr[MAX_MOVES];
 static movgen::Move* arr_end = move_arr;
 
-// When suppled with an array of moves, corresponding to a valid game,
-// this function makes these moves and updates the saved position to match
-// the last move in the array
-// Returns an error if finds an impossible move
-template<typename InputIterator>
-uint16_t _make_moves(InputIterator begin, InputIterator end);
-
-// Wrapper function to call appropriate function template depending
-// on the current color to move
-static void _generate_moves();
+void uci(std::vector<std::string> args);
+void debug(std::vector<std::string> args);
+void isready(std::vector<std::string> args);
+void setoption(std::vector<std::string> args);
+void reg(std::vector<std::string> args);
+void ucinewgame(std::vector<std::string> args);
+void position(std::vector<std::string> args);
+void go(std::vector<std::string> args);
+void stop(std::vector<std::string> args);
 
 #endif

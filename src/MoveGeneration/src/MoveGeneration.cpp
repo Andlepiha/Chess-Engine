@@ -20,6 +20,7 @@
 bitboard movgen::knight_attacks[64];
 bitboard movgen::king_attacks[64];
 std::atomic_bool movgen::initialized = false;
+std::atomic_bool movgen::initialized_magics = false;
 
 void movgen::init()
 {
@@ -77,6 +78,11 @@ void movgen::init()
 	}
 
 	initialized = true;
+}
+
+bool movgen::is_initialized()
+{
+	return movgen::initialized && movgen::initialized_magics;
 }
 
 template <movgen::PieceType type, movgen::GenType gen_type>

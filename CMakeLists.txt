@@ -27,18 +27,19 @@ project(chess-engine VERSION 0.1 LANGUAGES CXX)
 include(CTest)
 enable_testing()
 
-add_subdirectory(src/MoveGeneration)
-add_subdirectory(src/MoveEvaluation)
-add_subdirectory(src/Tests)
-add_subdirectory(src/Visualization)
-
 # Basic settings
 set(CPACK_PACKAGE_NAME "ChessEngine")
-set(CPACK_PACKAGE_VERSION "0.0.5")
+set(CPACK_PACKAGE_VERSION "0.5")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Chess engine Installer")
 set(CPACK_PACKAGE_VENDOR "Andlepiha")
 set(CPACK_PACKAGE_CONTACT "rubcov23033@gmail.com")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "ChessEngine ${CPACK_PACKAGE_VERSION}")
+
+add_compile_definitions(
+    ENGINE_NAME="${CPACK_PACKAGE_NAME}"
+	ENGINE_VERSION="${CPACK_PACKAGE_VERSION}"
+	ENGINE_AUTHOR="${CPACK_PACKAGE_VENDOR}"
+)
 
 # Installation prefix
 set(CPACK_INSTALL_PREFIX "C:/Program Files/${CPACK_PACKAGE_NAME}")
@@ -55,6 +56,11 @@ set(CPACK_NSIS_DISPLAY_NAME "ChessEngine")
 set(CPACK_NSIS_MUI_ICON "${CMAKE_SOURCE_DIR}/icon.ico")
 set(CPACK_NSIS_INSTALLER_ICON "${CMAKE_SOURCE_DIR}/icon.ico")
 set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+
+add_subdirectory(src/MoveGeneration)
+add_subdirectory(src/MoveEvaluation)
+add_subdirectory(src/Tests)
+add_subdirectory(src/Visualization)
 
 # Include CPack at the end
 include(CPack)
