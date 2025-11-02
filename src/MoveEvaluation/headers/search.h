@@ -3,43 +3,6 @@
 #include <stop_token>
 #include <chrono>
 
-// Print search tree to file
-#define LOG_SEARCH 0
-#if LOG_SEARCH == 1
-	#define _ROOT_NODE _LogTreeNode _root_node;
-	#define _LOG_NODE_ARG_DEF ,_LogTreeNode* _log_node
-	#define _LOG_NODE_CHILD_ARG ,_log_node->add_child(std::string(move))
-	#define _LOG_NODE_ARG ,_log_node
-	#define _APPEND_SCORE _log_node->data += ": " + std::to_string(best_value);
-
-	#define _PRINT_LOG_TO_FILE std::ofstream log_file("search_log.txt", std::ios_base::app); 	\
-		_print_log_tree(log_file, "", &_root_node, true); 											\
-		log_file << "\n" << std::endl; 															\
-		log_file.close();
-#else
-	#define _ROOT_NODE
-	#define _LOG_NODE_ARG_DEF
-	#define _LOG_NODE_CHILD_ARG
-	#define _LOG_NODE_ARG
-	#define _APPEND_SCORE
-	#define _PRINT_LOG_TO_FILE
-#endif
-
-struct _LogTreeNode
-{
-	std::string data;
-	std::vector<_LogTreeNode*> children;
-
-	_LogTreeNode* add_child(std::string data = "")
-	{
-		children.push_back(new _LogTreeNode);
-		if(data != "")
-			children.back()->data = data;
-
-		return children.back();
-	}
-};
-
 namespace ch = std::chrono;
 
 constexpr size_t TRANSPOSITION_TABLE_SIZE_MB = 500;
@@ -113,13 +76,13 @@ template <movgen::Color col>
 static std::tuple<float, movgen::Move> _minmax(
 		std::stop_token stoken,
 		movgen::BoardPosition* pos, uint16_t depth,
-		float alpha, float beta _LOG_NODE_ARG_DEF);
+		float alpha, float beta);
 
 template <movgen::Color col>
 static float _minmax_captures(
 		std::stop_token stoken,
 		movgen::BoardPosition* pos, float alpha,
-		float beta _LOG_NODE_ARG_DEF);
+		float beta);
 
 // Return eval, if the game ended
 constexpr bool eval_if_game_ended(movgen::GameStatus status, float* eval);

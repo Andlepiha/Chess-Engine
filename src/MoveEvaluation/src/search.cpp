@@ -9,9 +9,9 @@
 #include <stop_token>
 #include <tuple>
 #include <vector>
-#include <ostream>
 #include <algorithm>
 #include <thread>
+#include <math.h>
 
 #define fuzzy_equal(val1, val2) std::abs(val1 - val2) < 0.01
 
@@ -21,23 +21,6 @@ std::atomic<bool> search_running = false;
 ch::time_point<ch::steady_clock> start_time;
 
 static TranspositionTable _transpostion_table;
-
-void _print_log_tree(std::ostream& out, const std::string& prefix, const _LogTreeNode* node, bool is_last)
-{
-	out << prefix << (is_last ? "└──" : "├──");
-	out << node->data << "\n";
-
-	if(node->children.size() > 0)
-	{
-		auto current_child = node->children.begin();
-		auto last_child = std::prev(node->children.end());
-
-		while(current_child != last_child)
-			_print_log_tree(out, prefix + (is_last ? "    " : "│   "), *(current_child++), false);
-
-		_print_log_tree(out, prefix + (is_last ? "    " : "│   "), *last_child, true);
-	}
-}
 
 void TranspositionTable::increment_age()
 {
@@ -152,9 +135,14 @@ std::tuple<float, movgen::Move> minmax_best(
 	node_count = 0;
 
 	const movgen::Color col = pos->side_to_move;
-	_ROOT_NODE
 
-	uint depth = 1;
+	uint depth;
+	// Do not use iterative deepening for depth < 5
+	if(cond == StopCond::DEPTH)
+		depth = std::min(cond_arg, 5ul);
+	else
+		depth = 5;
+
 	std::tuple<float, movgen::Move> best_move(0.0f,  movgen::Move::return_null());
 	search_running = true;
 
@@ -166,12 +154,12 @@ std::tuple<float, movgen::Move> minmax_best(
 		std::jthread search_thread([&, pos](std::stop_token stoken) mutable {
 			if(pos->side_to_move == movgen::Color::WHITE)
 			{
-				auto result = _minmax<movgen::Color::WHITE>(stoken, pos, depth, -INFINITY, INFINITY _LOG_NODE_CHILD_ARG);
+				auto result = _minmax<movgen::Color::WHITE>(stoken, pos, depth, -INFINITY, INFINITY);
 				search_promise.set_value(result);
 			}
 			else
 			{
-				auto result = _minmax<movgen::Color::BLACK>(stoken, pos, depth, -INFINITY, INFINITY _LOG_NODE_CHILD_ARG);
+				auto result = _minmax<movgen::Color::BLACK>(stoken, pos, depth, -INFINITY, INFINITY);
 				search_promise.set_value(result);
 			}
 		});
@@ -184,10 +172,10 @@ std::tuple<float, movgen::Move> minmax_best(
 			if (status == std::future_status::ready) {
 				best_move = search_future.get();
 
-				printf("INFO depth %u pv %s, score cp %u nodes %lu\n",
+				printf("INFO depth %u pv %s, score cp %d nodes %lu\n",
 						depth,
 						std::string(std::get<movgen::Move>(best_move)).c_str(),
-						uint(std::get<float>(best_move) * 100),
+						(int32_t)(std::get<float>(best_move) * 100),
 						node_count.load()
 					  );
 
@@ -223,15 +211,10 @@ std::tuple<float, movgen::Move> minmax_best(
 			{
 				if (search_thread.get_stop_token().stop_possible())
 					search_thread.request_stop();
-				goto ReturnResult;
+				return best_move;
 			}
 		}
 	}
-
-ReturnResult:
-	_PRINT_LOG_TO_FILE
-
-	return best_move;
 }
 
 std::vector<std::tuple<float, movgen::Move>> minmax_all(
@@ -269,7 +252,7 @@ template <movgen::Color col>
 std::tuple<float, movgen::Move> _minmax(
 		std::stop_token  stoken,
 		movgen::BoardPosition* pos, uint16_t depth,
-		float alpha, float beta _LOG_NODE_ARG_DEF)
+		float alpha, float beta)
 {
 	assert(col == pos->side_to_move);
 
@@ -303,9 +286,9 @@ std::tuple<float, movgen::Move> _minmax(
 			movgen::make_move(pos,  tt_entry->best_move);
 
 			if (depth > 1)
-				score = -std::get<float>(_minmax<op_col>(stoken, pos, depth - 1, -beta, -alpha _LOG_NODE_CHILD_ARG));
+				score = -std::get<float>(_minmax<op_col>(stoken, pos, depth - 1, -beta, -alpha));
 			else
-				score = -_minmax_captures<op_col>(stoken, pos, alpha, beta _LOG_NODE_CHILD_ARG);
+				score = -_minmax_captures<op_col>(stoken, pos, alpha, beta);
 
 			movgen::undo_move(pos, tt_entry->best_move);
 
@@ -331,16 +314,13 @@ std::tuple<float, movgen::Move> _minmax(
 			return std::make_tuple(-INFINITY, movgen::Move::return_null());
 
 		node_count++;
-#if LOG_SEARCH
-		std::string move_str = std::string(move);
-#endif
 		movgen::make_move(pos, *move, nullptr);
 
 		if(depth > 1)
-			score = -std::get<float>(_minmax<op_col>(stoken, pos, depth - 1, -beta, -alpha _LOG_NODE_CHILD_ARG));
+			score = -std::get<float>(_minmax<op_col>(stoken, pos, depth - 1, -beta, -alpha));
 		else
 			// Search remaining captures and only then return the score
-			score = -_minmax_captures<op_col>(stoken, pos, alpha, beta _LOG_NODE_CHILD_ARG);
+			score = -_minmax_captures<op_col>(stoken, pos, alpha, beta);
 
 		movgen::undo_move(pos, *move);
 
@@ -369,7 +349,6 @@ std::tuple<float, movgen::Move> _minmax(
     else if (best_score >= beta) nodeType = LOWER_BOUND;
 	_transpostion_table.insert(pos->hash->key, best_score, (uint8_t)depth, nodeType, best_move);
 
-	_APPEND_SCORE
 	return std::make_tuple(best_score, best_move);
 }
 
@@ -379,7 +358,7 @@ template <movgen::Color col>
 float _minmax_captures(
 		std::stop_token stoken,
 		movgen::BoardPosition* pos, float alpha,
-		float beta _LOG_NODE_ARG_DEF)
+		float beta)
 {
 	assert(col == pos->side_to_move);
 
@@ -389,7 +368,7 @@ float _minmax_captures(
 	movgen::Move new_arr[MAX_MOVES];
 	movgen::Move* new_arr_end;
 
-	float score, best_value;
+	float score, best_score;
 
 	//If the king is in check, we need to generate all of the moves and find out if the game ended
 	if (pos->info->checks_num > 0)
@@ -401,8 +380,7 @@ float _minmax_captures(
 	}
 	//Else, continue as normal
 
-	best_value = score = eval(*pos);
-	_APPEND_SCORE
+	best_score = score = eval(*pos);
 
     if(score >= beta)
 		return score;
@@ -415,26 +393,23 @@ float _minmax_captures(
 	for(auto move = new_arr; move != new_arr; move++)
 	{
 		if(stoken.stop_requested())
-			return best_value;
+			return best_score;
 
-#if LOG_SEARCH
-		std::string move_str = std::string(move);
-#endif
 		movgen::make_move(pos, *move, nullptr);
-		score = -_minmax_captures<op_col>(stoken, pos, -beta, -alpha _LOG_NODE_CHILD_ARG);
+		score = -_minmax_captures<op_col>(stoken, pos, -beta, -alpha);
 
 		node_count++;
 		movgen::undo_move(pos, *move);
 
         if(score >= beta)
 			return score;
-		if(score > best_value)
-			best_value = score;
+		if(score > best_score)
+			best_score = score;
 		if(score > alpha)
 			alpha = score;
 	}
 
-	return best_value;
+	return best_score;
 }
 
 constexpr bool eval_if_game_ended(movgen::GameStatus status, float* eval)
