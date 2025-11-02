@@ -15,7 +15,7 @@
 
 #define MAKE_MOVE_INSTANCE(type)                                                                                            \
 	template movgen::Move* movgen::make_move<type>(                                                                         \
-		movgen::BoardPosition * pos, movgen::Move & move, movgen::Move* new_moves)
+		movgen::BoardPosition * pos, const movgen::Move & move, movgen::Move* new_moves)
 
 bitboard movgen::knight_attacks[64];
 bitboard movgen::king_attacks[64];
@@ -619,7 +619,7 @@ movgen::Move* movgen::get_legal_moves(BoardPosition& pos, movgen::Move* move_arr
 		{
 			if(bitb::sq_bitb(cur_move->from) & pos.info->pin_board)
 				*cur_move = *(--arr_end);
-			else if((cur_move->from == ksq && cur_move->get_type() != MoveType::CASTLING && _is_legal(pos, *cur_move)) ||
+			else if((cur_move->from == ksq && cur_move->get_type() != MoveType::CASTLING && is_legal(pos, *cur_move)) ||
 			   (cur_move->from != ksq && bitb::sq_bitb(cur_move->to) & pos.info->blockers))
 				cur_move++;
 			else
@@ -634,7 +634,7 @@ movgen::Move* movgen::get_legal_moves(BoardPosition& pos, movgen::Move* move_arr
 		if (!(bitb::sq_bitb(cur_move->from) & pinned ||
 					cur_move->from == ksq ||
 					cur_move->get_type() == MoveType::EN_PASSANT) ||
-				_is_legal(pos, *cur_move)
+				is_legal(pos, *cur_move)
 		   )
 			cur_move++;
 		else
@@ -644,7 +644,7 @@ movgen::Move* movgen::get_legal_moves(BoardPosition& pos, movgen::Move* move_arr
 }
 
 template <movgen::GenType gen_type>
-movgen::Move* movgen::make_move(movgen::BoardPosition* pos, movgen::Move& move, movgen::Move* move_arr)
+movgen::Move* movgen::make_move(movgen::BoardPosition* pos, const movgen::Move& move, movgen::Move* move_arr)
 {
 	const bitb::Direction down = pos->side_to_move == Color::WHITE ? bitb::DOWN : bitb::UP;
 	const movgen::CastlingRights castling = pos->side_to_move == Color::WHITE ?
@@ -842,7 +842,7 @@ movgen::GameStatus movgen::check_game_state(movgen::BoardPosition* pos, movgen::
 	return GameStatus::GAME_CONTINUES;
 }
 
-void movgen::undo_move(movgen::BoardPosition* pos, movgen::Move& move)
+void movgen::undo_move(movgen::BoardPosition* pos, const movgen::Move& move)
 {
 	pos->side_to_move = static_cast<movgen::Color>(!(uint)pos->side_to_move);
 	if(pos->side_to_move == Color::BLACK)
@@ -900,7 +900,7 @@ void movgen::undo_move(movgen::BoardPosition* pos, movgen::Move& move)
 		pos->pieces[static_cast<uint>(Piece::WHITE_PIECES)];
 }
 
-bool _is_legal(movgen::BoardPosition& pos, movgen::Move& move)
+bool movgen::is_legal(movgen::BoardPosition& pos, const movgen::Move& move)
 {
 	const movgen::Color c = pos.side_to_move;
 	const bpos from = move.from;

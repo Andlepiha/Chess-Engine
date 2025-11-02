@@ -6,7 +6,6 @@
 
 #include <cstddef>
 #include <cstdio>
-#include <future>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -16,12 +15,8 @@
 template <class F, class... Args, class C>
 void async_with_callback(F&& func, C&& callback, Args&&... args)
 {
-	auto future = std::async(std::launch::async, [&]() {
-		return func(args...);
-	});
-
-	std::thread([future = std::move(future), callback = std::move(callback)]() mutable {
-		auto result = future.get();
+	std::thread([=]() mutable {
+		auto result = func(args...);
 		callback(result);
 	}).detach();
 }
@@ -30,6 +25,8 @@ uint16_t _make_moves(std::vector<std::string>::iterator begin, std::vector<std::
 {
 	uint16_t move_count = 0;
 	auto iterator = begin;
+
+	_generate_moves();
 
 	while(iterator != end)
 	{
@@ -218,7 +215,7 @@ void isready(std::vector<std::string> args)
 	{
 		if(movgen::is_initialized())
 			break;
-		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 	printf("readyok\n");
 }
@@ -244,6 +241,8 @@ void go(std::vector<std::string> args)
 {
 	if (_saved_pos_is_null)
 		position({"startpos"});
+	if(search_running)
+		return;
 
 	if(args.empty())
 	{
@@ -260,7 +259,7 @@ ponder:
 			printf("Please specify depth value:\ngo depth [depth]\n");
 			return;
 		}
-		auto depth = static_cast<uint16_t>(atoi(args[1].c_str()));
+		auto depth = static_cast<size_t>(atoi(args[1].c_str()));
 
 		async_with_callback(
 			minmax_best,
@@ -269,21 +268,66 @@ ponder:
 					std::string(std::get<movgen::Move>(result)).c_str(),
 					std::get<float>(result)
 				);
+				search_running = false;
 			},
-			&_saved_pos, move_arr, arr_end, depth
+			&_saved_pos, move_arr, arr_end, StopCond::DEPTH, depth
 		);
 	}
 	else if(args[0] == "nodes")
 	{
+		if(args.size() < 2)
+		{
+			printf("Please specify nodes value:\ngo nodes [node_count]\n");
+			return;
+		}
+		auto nodes = static_cast<size_t>(atoi(args[1].c_str()));
 
+		async_with_callback(
+			minmax_best,
+			[&](std::tuple<float, movgen::Move> result) {
+				printf("%s: %.1f\n",
+					std::string(std::get<movgen::Move>(result)).c_str(),
+					std::get<float>(result)
+				);
+				search_running = false;
+			},
+			&_saved_pos, move_arr, arr_end, StopCond::NODES, nodes
+		);
 	}
-	else if(args[0] == "movetime")
+	else if(args[0] == "movetime" || args[0] == "time")
 	{
+		if(args.size() < 2)
+		{
+			printf("Please specify time value:\ngo time [time_ms]\n");
+			return;
+		}
+		auto time = static_cast<size_t>(atoi(args[1].c_str()));
 
+		async_with_callback(
+			minmax_best,
+			[&](std::tuple<float, movgen::Move> result) {
+				printf("%s: %.1f\n",
+					std::string(std::get<movgen::Move>(result)).c_str(),
+					std::get<float>(result)
+				);
+				search_running = false;
+			},
+			&_saved_pos, move_arr, arr_end, StopCond::TIME, time
+		);
 	}
 	else if(args[0] == "infinite")
 	{
-
+		async_with_callback(
+			minmax_best,
+			[&](std::tuple<float, movgen::Move> result) {
+				printf("%s: %.1f\n",
+					std::string(std::get<movgen::Move>(result)).c_str(),
+					std::get<float>(result)
+				);
+				search_running = false;
+			},
+			&_saved_pos, move_arr, arr_end, StopCond::INFINITE, NULL
+		);
 	}
 	else if(args[0] == "searchmoves")
 	{
@@ -320,11 +364,14 @@ ponder:
 	}
 	else
 	{
-		goto ponder;
+		printf("Command %s was not found\n", args[0].c_str());
 	}
 }
 
-void stop(std::vector<std::string> args) {}
+void stop(std::vector<std::string> args)
+{
+	stop_search_request = true;
+}
 
 void position(std::vector<std::string> args)
 {
@@ -377,47 +424,6 @@ void position(std::vector<std::string> args)
 			_saved_pos_is_null = true;
 			printf("Error: %s\n", e.what());
 		}
-	}
-	else
-		_generate_moves();
-	//_saved_pos.print();
-}
-
-void start_search(std::vector<std::string> args)
-{
-	if(_saved_pos_is_null)
-	{
-		printf("Please initialise the position first\n");
-		return;
-	}
-
-	if(args.size() > 0)
-	{
-		if(args[0] == "depth")
-		{
-			if(args.size() < 2)
-			throw std::runtime_error("Please provide a depth value");
-			auto best_move = minmax_best(&_saved_pos, move_arr, arr_end, static_cast<uint16_t>(atoi(args[1].c_str())));
-			printf("%s: %.1f\n", std::string(std::get<1>(best_move)).c_str(), std::get<0>(best_move));
-			//minmax_eval(&_saved_pos, _gen_moves, static_cast<uint16_t>(atoi(args[1].c_str())));
-		}
-		else if(args[0] == "time")
-		{
-			if(args.size() < 2)
-				throw std::runtime_error("Please provide a time value");
-			throw std::logic_error("Not implemented");
-		}
-		else
-		{
-			printf("Unknown argument \"%s\"\n", args[0].c_str());
-			return;
-		}
-	}
-	else
-	{
-		printf("Starting infinite search, type \"stop\" to stop\n");
-
-		throw std::logic_error("Not implemented");
 	}
 }
 

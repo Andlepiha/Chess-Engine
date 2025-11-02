@@ -402,11 +402,10 @@ movgen::Move movgen::Move::return_null()
 
 movgen::Move::operator std::string() const
 {
+	if(this->is_null_instance)
+		return "none";
+
 	std::string move_str = squares[from];
-
-	if(this->get_captured() != Piece::NO_PIECE)
-		move_str += "x";
-
 	move_str += squares[to];
 
 	if(this->get_promoted() != Piece::NO_PIECE)

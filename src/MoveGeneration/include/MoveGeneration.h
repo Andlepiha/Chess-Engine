@@ -53,19 +53,19 @@ namespace movgen
 		movgen::Move* generate_all_moves(BoardPosition& pos, movgen::Move* moves);
 	// Filters out non-legal moves from generated moves using PositionInfo
 	movgen::Move* get_legal_moves(BoardPosition& pos, movgen::Move* move_arr, movgen::Move* arr_end);
+	bool is_legal(movgen::BoardPosition& pos, const movgen::Move& move);
 
 	/// Pass in move_arr pointer to auto generate new set of moves for the resulting position
 	/// if this is not required, passing nullptr skips generation
 	template <movgen::GenType gen_type = movgen::GenType::LEGAL>
-	movgen::Move* make_move(movgen::BoardPosition* pos, movgen::Move& move, movgen::Move* move_arr);
+	movgen::Move* make_move(movgen::BoardPosition* pos, const movgen::Move& move, movgen::Move* move_arr = nullptr);
 
-	void undo_move(movgen::BoardPosition* pos, movgen::Move& move);
+	void undo_move(movgen::BoardPosition* pos, const movgen::Move& move);
 
 	GameStatus check_game_state(movgen::BoardPosition* pos, movgen::Move* move_arr, movgen::Move* arr_end);
 } // namespace movgen
 
 /// Static functions for use in this file only
-static bool _is_legal(movgen::BoardPosition& pos, movgen::Move& move);
 // Convert bitboard to a move array and push it to the movgen::Move* move_arr
 static void _bitb_movearray(movgen::Piece piece,
 							bpos starting_pos,

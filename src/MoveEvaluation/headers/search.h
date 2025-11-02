@@ -1,7 +1,6 @@
 #include "MovgenTypes.h"
 #include <cstdint>
-#include <unordered_map>
-#include <cmath>
+#include <stop_token>
 #include <chrono>
 
 // Print search tree to file
@@ -87,13 +86,23 @@ bool cmp_moves(movgen::Move lhs, movgen::Move rhs);
 void sort_moves(movgen::Move* move_arr, movgen::Move* arr_end);
 
 extern std::atomic<size_t> node_count;
-extern std::atomic<bool> stop_search;
+extern std::atomic<bool> stop_search_request;
+extern std::atomic<bool> search_running;
 extern ch::time_point<ch::steady_clock> start_time;
+
+enum class StopCond
+{
+	DEPTH,
+	NODES,
+	TIME,
+	INFINITE,
+	MATE
+};
 
 // Return best move adn it's eval
 std::tuple<float, movgen::Move> minmax_best(
 		movgen::BoardPosition* pos, movgen::Move* move_arr,
-		movgen::Move* arr_end, uint16_t depth);
+		movgen::Move* arr_end, StopCond cond, size_t cond_arg);
 
 // Return all moves and their evals
 std::vector<std::tuple<float, movgen::Move>> minmax_all(
@@ -102,12 +111,13 @@ std::vector<std::tuple<float, movgen::Move>> minmax_all(
 
 template <movgen::Color col>
 static std::tuple<float, movgen::Move> _minmax(
-		movgen::BoardPosition* pos, movgen::Move* move_arr,
-		movgen::Move* arr_end, uint16_t depth,
+		std::stop_token stoken,
+		movgen::BoardPosition* pos, uint16_t depth,
 		float alpha, float beta _LOG_NODE_ARG_DEF);
 
 template <movgen::Color col>
-static  float _minmax_captures(
+static float _minmax_captures(
+		std::stop_token stoken,
 		movgen::BoardPosition* pos, float alpha,
 		float beta _LOG_NODE_ARG_DEF);
 
