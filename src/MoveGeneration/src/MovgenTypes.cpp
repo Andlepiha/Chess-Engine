@@ -348,6 +348,11 @@ movgen::Move::Move(
 	this->move_data |= static_cast<uint>(castling) << 10;
 }
 
+bool movgen::Move::is_quiet() const
+{
+	return this->move_data == 0;
+}
+
 movgen::MoveType movgen::Move::get_type() const
 {
 	assert(!is_null_instance);
@@ -412,6 +417,14 @@ movgen::Move::operator std::string() const
 		move_str += piece_str.at(get_piece_type(this->get_promoted()));
 
 	return move_str;
+}
+
+bool movgen::Move::operator ==(const movgen::Move& other) const
+{
+	return  (this->piece == other.piece) 	&&
+			(this->from == other.from) 		&&
+			(this->to == other.to) 			&&
+			(this->move_data == other.move_data);
 }
 
 void movgen::BoardPosition::print()

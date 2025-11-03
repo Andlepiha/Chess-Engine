@@ -20,7 +20,14 @@ std::atomic<bool> stop_search_request = false;
 std::atomic<bool> search_running = false;
 ch::time_point<ch::steady_clock> start_time;
 
+std::atomic<size_t> first_move_cutoffs;
+
 static TranspositionTable _transpostion_table;
+
+// When adding a new move to the table, I shift previous moves to the right
+// thus size+1 is a padding to ensure that the write does not get out of bounds
+static movgen::Move (*killer_table)[KILLER_MOVE_TABLE_SIZE + 1] =
+	new movgen::Move[KILLER_MOVE_TABLE_MAX_PLY][KILLER_MOVE_TABLE_SIZE + 1];
 
 void TranspositionTable::increment_age()
 {
@@ -75,39 +82,39 @@ bool cmp_moves(movgen::Move lhs, movgen::Move rhs)
 			// Both moves are promotions, value captures more
 			if(lhs_type != movgen::MoveType::PROMOTION_CAPTURE && rhs_type == movgen::MoveType::PROMOTION_CAPTURE)
 				return true;
-			//Promotions with two captures are quite rare, so no checks for value of the peices
+
+			//Promotions with two possible captures are quite rare, so no checks for value of the peices
 			return false;
 		}
+
 		//Value queen promotions very highly
 		return true;
 	}
 	if (rhs_type == movgen::MoveType::CAPTURE)
 	{
+		uint16_t rhs_captured_val = (int16_t)piece_val(movgen::get_piece_type(rhs.get_captured()));
+		uint16_t rhs_piece_val = (int16_t)piece_val(movgen::get_piece_type(rhs.piece));
+
 		if (lhs_type == movgen::MoveType::CAPTURE)
 		{
-			// Cast it to int so I can test for equality
-			uint16_t lhs_captured_val = (uint16_t)piece_val(movgen::get_piece_type(lhs.get_captured()));
-			uint16_t rhs_captured_val = (uint16_t)piece_val(movgen::get_piece_type(rhs.get_captured()));
+			uint16_t lhs_captured_val = (int16_t)piece_val(movgen::get_piece_type(lhs.get_captured()));
+			uint16_t lhs_piece_val = (int16_t)piece_val(movgen::get_piece_type(lhs.piece));
 
-			if(rhs_captured_val > lhs_captured_val)
+			if((rhs_captured_val - rhs_piece_val) > (lhs_captured_val - lhs_piece_val))
 				return true;
-			if (rhs_captured_val == lhs_captured_val)
-				//Pieces are sorted at move generation by value, so I need to test only pawn captures
-				if(rhs.piece == movgen::Piece::W_PAWN || rhs.piece == movgen::Piece::B_PAWN)
-					return true;
 
 			return false;
 		}
 
-		//Value captures quite highly
-		return true;
+		// Only winning captures are placed on top
+		return (rhs_captured_val - rhs_piece_val) > 0;
 	}
 
 	//No reason to swap
 	return false;
 }
 
-void sort_moves(movgen::Move* move_arr, movgen::Move* arr_end)
+void sort_moves(movgen::Move* move_arr, movgen::Move* arr_end, movgen::Move* killer_moves)
 {
 	//Inserion sort
 	for(size_t i = 1; i < arr_end - move_arr; ++i)
@@ -123,6 +130,27 @@ void sort_moves(movgen::Move* move_arr, movgen::Move* arr_end)
 		}
 		move_arr[j] = std::move(key);
 	}
+
+	// Insert killer moves after the captures/promotions
+	uint insert_pos;
+	for(insert_pos = 0; !move_arr[insert_pos].is_quiet(); insert_pos++);
+
+	for (size_t p = 0; p < KILLER_MOVE_TABLE_SIZE; ++p)
+    {
+        for (size_t i = insert_pos; i < arr_end - move_arr; ++i)
+        {
+            if (move_arr[i] == killer_moves[p])
+            {
+                // Rotate range [insert_pos, i] right by 1
+                movgen::Move temp = std::move(move_arr[i]);
+                for (size_t j = i; j > insert_pos; --j)
+                    move_arr[j] = std::move(move_arr[j - 1]);
+                move_arr[insert_pos] = std::move(temp);
+                ++insert_pos;
+                break;
+            }
+        }
+    }
 }
 
 std::tuple<float, movgen::Move> minmax_best(
@@ -133,15 +161,11 @@ std::tuple<float, movgen::Move> minmax_best(
 
 	start_time = ch::steady_clock::now();
 	node_count = 0;
+	first_move_cutoffs = 0;
 
 	const movgen::Color col = pos->side_to_move;
 
-	uint depth;
-	// Do not use iterative deepening for depth < 5
-	if(cond == StopCond::DEPTH)
-		depth = std::min(cond_arg, 5ul);
-	else
-		depth = 5;
+	uint depth = 1;
 
 	std::tuple<float, movgen::Move> best_move(0.0f,  movgen::Move::return_null());
 	search_running = true;
@@ -172,11 +196,12 @@ std::tuple<float, movgen::Move> minmax_best(
 			if (status == std::future_status::ready) {
 				best_move = search_future.get();
 
-				printf("INFO depth %u pv %s, score cp %d nodes %lu\n",
+				printf("INFO depth %u pv %s, score cp %d nodes %lu fmc %lu\n",
 						depth,
 						std::string(std::get<movgen::Move>(best_move)).c_str(),
 						(int32_t)(std::get<float>(best_move) * 100),
-						node_count.load()
+						node_count.load(),
+						first_move_cutoffs.load()
 					  );
 
 				depth++;
@@ -294,7 +319,10 @@ std::tuple<float, movgen::Move> _minmax(
 
 			// We can skip move generation
 			if(score >= beta)
+			{
+				first_move_cutoffs++;
 				return std::make_tuple(score, tt_entry->best_move);
+			}
 		}
 	}
 
@@ -305,7 +333,7 @@ std::tuple<float, movgen::Move> _minmax(
 
 	// This will tecnically seach the best move twise, but I assume this will not impact performance thah much
 	arr_end = movgen::generate_all_moves<col, movgen::GenType::LEGAL>(*pos, move_arr);
-	sort_moves(move_arr, arr_end);
+	sort_moves(move_arr, arr_end, killer_table[pos->hash->ply]);
 
 	movgen::Move best_move;
 	for(auto move = move_arr; move != arr_end; move++)
@@ -332,7 +360,16 @@ std::tuple<float, movgen::Move> _minmax(
 				alpha = score;
 		}
 		if(score >= beta)
+		{
+			// Add this to the killer moves if this is a quet move
+			if(move->is_quiet())
+			{
+				for(auto i = 0; i < KILLER_MOVE_TABLE_SIZE; i++)
+					killer_table[pos->hash->ply][i + 1] = killer_table[pos->hash->ply][i];
+				killer_table[pos->hash->ply][0] = *move;
+			}
 			break;
+		}
 	}
 
 	// There are no legal moves, the game ended in checkmate or stalemate
@@ -388,8 +425,8 @@ float _minmax_captures(
 		alpha = score;
 
 	new_arr_end = movgen::generate_all_moves<col, movgen::GenType::LEGAL>(*pos, &new_arr[0]);
+	sort_moves(&new_arr[0], new_arr_end, killer_table[pos->hash->ply]);
 
-	sort_moves(&new_arr[0], new_arr_end);
 	for(auto move = new_arr; move != new_arr; move++)
 	{
 		if(stoken.stop_requested())

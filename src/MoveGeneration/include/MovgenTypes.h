@@ -188,20 +188,19 @@ BoardPosition board_from_fen(std::string fen);
 std::string board_to_fen(BoardPosition& pos);
 
 static constexpr const char* const squares[]{
-	"h1", "g1", "f1", "e1", "d1", "c1", "b1", "a1", "h2", "g2", "f2", "e2", "d2",
-		"c2", "b2", "a2", "h3", "g3", "f3", "e3", "d3", "c3", "b3", "a3", "h4", "g4",
-		"f4", "e4", "d4", "c4", "b4", "a4", "h5", "g5", "f5", "e5", "d5", "c5", "b5",
-		"a5", "h6", "g6", "f6", "e6", "d6", "c6", "b6", "a6", "h7", "g7", "f7", "e7",
-		"d7", "c7", "b7", "a7", "h8", "g8", "f8", "e8", "d8", "c8", "b8", "a8",
+	"h1", "g1", "f1", "e1", "d1", "c1", "b1", "a1", "h2", "g2", "f2", "e2", "d2", "c2", "b2", "a2",
+	"h3", "g3", "f3", "e3", "d3", "c3", "b3", "a3", "h4", "g4", "f4", "e4", "d4", "c4", "b4", "a4",
+	"h5", "g5", "f5", "e5", "d5", "c5", "b5", "a5", "h6", "g6", "f6", "e6", "d6", "c6", "b6", "a6",
+	"h7", "g7", "f7", "e7", "d7", "c7", "b7", "a7", "h8", "g8", "f8", "e8", "d8", "c8", "b8", "a8",
 };
 static const std::unordered_map<PieceType, char> piece_str = {
 	{PieceType::NO_PIECE_TYPE, 0},
-	{PieceType::KING,   'k'},
-	{PieceType::QUEEN,  'q'},
-	{PieceType::ROOK,   'r'},
+	{PieceType::KING, 'k'},
+	{PieceType::QUEEN, 'q'},
+	{PieceType::ROOK, 'r'},
 	{PieceType::BISHOP, 'b'},
 	{PieceType::KNIGHT, 'n'},
-	{PieceType::PAWN,   'p'},
+	{PieceType::PAWN, 'p'},
 };
 
 class Move
@@ -224,12 +223,14 @@ public:
 		 Castling castling = Castling::NO_CASTLING);
 	Move(const Move& other);
 
+	bool is_quiet() const;
 	MoveType get_type() const;
 	Piece get_captured() const;
 	Piece get_promoted() const;
 	Castling get_castling() const;
 
 	operator std::string() const;
+	bool operator ==(const movgen::Move& other) const;
 
 	bool is_null_instance = false;
 	static Move return_null();

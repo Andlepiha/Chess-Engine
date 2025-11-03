@@ -6,6 +6,8 @@
 namespace ch = std::chrono;
 
 constexpr size_t TRANSPOSITION_TABLE_SIZE_MB = 500;
+constexpr uint KILLER_MOVE_TABLE_MAX_PLY = 128;
+constexpr uint KILLER_MOVE_TABLE_SIZE = 3;
 
 enum NodeType
 {
@@ -46,12 +48,15 @@ private:
 bool cmp_moves(movgen::Move lhs, movgen::Move rhs);
 // Sort moves according to cmp_moves function
 // Places most likely best moves on top
-void sort_moves(movgen::Move* move_arr, movgen::Move* arr_end);
+void sort_moves(movgen::Move* move_arr, movgen::Move* arr_end, movgen::Move killer_moves);
 
 extern std::atomic<size_t> node_count;
 extern std::atomic<bool> stop_search_request;
 extern std::atomic<bool> search_running;
 extern ch::time_point<ch::steady_clock> start_time;
+
+// Number of moves, that were ordered first and caused a cutoff
+extern std::atomic<size_t> first_move_cutoffs;
 
 enum class StopCond
 {
