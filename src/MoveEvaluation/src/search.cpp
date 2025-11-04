@@ -31,7 +31,7 @@ static movgen::Move (*killer_table)[KILLER_MOVE_TABLE_SIZE + 1] =
 
 void TranspositionTable::increment_age()
 {
-	this->current_age = std::min((uint8_t)254, this->current_age); // Cap at 254
+	this->current_age = std::min((uint8_t)254, uint8_t(this->current_age + 1)); // Cap at 254
 }
 
 const _TTRow* TranspositionTable::search(uint64_t hash)
@@ -153,6 +153,50 @@ void sort_moves(movgen::Move* move_arr, movgen::Move* arr_end, movgen::Move* kil
     }
 }
 
+bool cmp_captures(movgen::Move lhs, movgen::Move rhs)
+{
+	uint16_t rhs_captured_val = (int16_t)piece_val(movgen::get_piece_type(rhs.get_captured()));
+	uint16_t rhs_piece_val = (int16_t)piece_val(movgen::get_piece_type(rhs.piece));
+
+	uint16_t lhs_captured_val = (int16_t)piece_val(movgen::get_piece_type(lhs.get_captured()));
+	uint16_t lhs_piece_val = (int16_t)piece_val(movgen::get_piece_type(lhs.piece));
+
+	return (rhs_captured_val - rhs_piece_val) > (lhs_captured_val - lhs_captured_val);
+}
+
+movgen::Move* prune_and_sort_captures(movgen::Move* move_arr, movgen::Move* arr_end)
+{
+	//Prune moves with static exchange evaluation < 0
+	movgen::Move* cur_move = move_arr;
+	while(cur_move != arr_end)
+	{
+		uint16_t captured_val = (int16_t)piece_val(movgen::get_piece_type(cur_move->get_captured()));
+		uint16_t pieceval = (int16_t)piece_val(movgen::get_piece_type(cur_move->piece));
+
+		if(captured_val - pieceval < 0)
+			*cur_move = *(--arr_end);
+		else
+			cur_move++;
+	}
+
+	// Sort the remaining moves
+	for(size_t i = 1; i < arr_end - move_arr; ++i)
+	{
+		auto key = std::move(move_arr[i]);
+		size_t j = i;
+
+		// Shift elements right to make space
+		while(j > 0 && cmp_captures(move_arr[j - 1], key))
+		{
+			move_arr[j] = std::move(move_arr[j - 1]);
+			j--;
+		}
+		move_arr[j] = std::move(key);
+	}
+
+	return arr_end;
+}
+
 std::tuple<float, movgen::Move> minmax_best(
 		movgen::BoardPosition* pos, movgen::Move* move_arr,
 		movgen::Move* arr_end, StopCond cond, size_t cond_arg)
@@ -219,7 +263,7 @@ std::tuple<float, movgen::Move> minmax_best(
 					break;
 				case StopCond::TIME:
 					{
-						auto search_time = ch::duration_cast<ch::milliseconds>(start_time - ch::steady_clock::now());
+						auto search_time = ch::duration_cast<ch::milliseconds>(ch::steady_clock::now() - start_time);
 						cond_satisfied = search_time.count() > cond_arg;
 						break;
 					}
@@ -292,7 +336,9 @@ std::tuple<float, movgen::Move> _minmax(
 			switch(tt_entry->type)
 			{
 			case EXACT:
-				return std::make_tuple(tt_entry->score, tt_entry->best_move);
+				// Only use the resukt from current search
+				if (tt_entry->node_age == 0)
+					return std::make_tuple(tt_entry->score, tt_entry->best_move);
 			case LOWER_BOUND:
 				alpha = std::max(alpha, tt_entry->score);
 				break;
@@ -306,24 +352,24 @@ std::tuple<float, movgen::Move> _minmax(
 		}
 
 		// Run the search only on the best move
-		if (movgen::is_legal(*pos, tt_entry->best_move))
-		{
-			movgen::make_move(pos,  tt_entry->best_move);
+		//if (movgen::is_legal(*pos, tt_entry->best_move))
+		//{
+		//	movgen::make_move(pos,  tt_entry->best_move);
 
-			if (depth > 1)
-				score = -std::get<float>(_minmax<op_col>(stoken, pos, depth - 1, -beta, -alpha));
-			else
-				score = -_minmax_captures<op_col>(stoken, pos, alpha, beta);
+		//	if (depth > 1)
+		//		score = -std::get<float>(_minmax<op_col>(stoken, pos, depth - 1, -beta, -alpha));
+		//	else
+		//		score = -_minmax_captures<op_col>(stoken, pos, alpha, beta);
 
-			movgen::undo_move(pos, tt_entry->best_move);
+		//	movgen::undo_move(pos, tt_entry->best_move);
 
-			// We can skip move generation
-			if(score >= beta)
-			{
-				first_move_cutoffs++;
-				return std::make_tuple(score, tt_entry->best_move);
-			}
-		}
+		//	// We can skip move generation
+		//	if(score >= beta)
+		//	{
+		//		first_move_cutoffs++;
+		//		return std::make_tuple(score, tt_entry->best_move);
+		//	}
+		//}
 	}
 
 	float best_score = -INFINITY;
@@ -424,18 +470,18 @@ float _minmax_captures(
 	if(score > alpha)
 		alpha = score;
 
-	new_arr_end = movgen::generate_all_moves<col, movgen::GenType::LEGAL>(*pos, &new_arr[0]);
-	sort_moves(&new_arr[0], new_arr_end, killer_table[pos->hash->ply]);
+	new_arr_end = movgen::generate_all_moves<col, movgen::GenType::CAPTURES>(*pos, &new_arr[0]);
+	new_arr_end = movgen::get_legal_moves(*pos, &new_arr[0], new_arr_end);
+	new_arr_end = prune_and_sort_captures(&new_arr[0], new_arr_end);
 
-	for(auto move = new_arr; move != new_arr; move++)
+	for(auto move = new_arr; move != new_arr_end; move++)
 	{
 		if(stoken.stop_requested())
 			return best_score;
+		node_count++;
 
 		movgen::make_move(pos, *move, nullptr);
 		score = -_minmax_captures<op_col>(stoken, pos, -beta, -alpha);
-
-		node_count++;
 		movgen::undo_move(pos, *move);
 
         if(score >= beta)

@@ -104,7 +104,7 @@ movgen::Move* movgen::generate_piece_moves(bpos piece_pos, BoardPosition& pos, m
 				// Check if no pieces are blocking the castling
 				if(!(bitb::Between_in[piece_pos][piece_pos - 3] & pos.pieces[static_cast<uint>(Piece::ALL_PIECES)]))
 					// Check if there is a rook
-					if(pos.pieces[static_cast<uint>(Piece::B_ROOK) + us] & (bitb::sq_rank(piece_pos) & bitb::File[7]))
+					if(pos.pieces[static_cast<uint>(Piece::B_ROOK) + us] & (bitb::sq_rank_bitb(piece_pos) & bitb::File[7]))
 						*move_arr++ = Move(
 								get_piece_from_type(PieceType::KING, c),
 								piece_pos, piece_pos - 2,
@@ -114,7 +114,7 @@ movgen::Move* movgen::generate_piece_moves(bpos piece_pos, BoardPosition& pos, m
 				// Check if no pieces are blocking the castling
 				if(!(bitb::Between_in[piece_pos][piece_pos + 4] & pos.pieces[static_cast<uint>(Piece::ALL_PIECES)]))
 					// Check if there is a rook
-					if(pos.pieces[static_cast<uint>(Piece::B_ROOK) + us] & (bitb::sq_rank(piece_pos) & bitb::File[0]))
+					if(pos.pieces[static_cast<uint>(Piece::B_ROOK) + us] & (bitb::sq_rank_bitb(piece_pos) & bitb::File[0]))
 						*move_arr++ = Move(
 								get_piece_from_type(PieceType::KING, c),
 								piece_pos, piece_pos + 2,
@@ -462,7 +462,7 @@ void movgen::get_pinners(BoardPosition& pos, PositionInfo* info)
 	{
 		bitboard enp_board = bitb::sq_bitb(pos.hash->en_passant);
 		// If the king is not on the same rank as the pawns, en passant pin is impossible
-		if(bitb::sq_rank(king_pos) & bitb::shift<back>(enp_board))
+		if(bitb::sq_rank_bitb(king_pos) & bitb::shift<back>(enp_board))
 		{
 			bitboard en_passant_pawn = bitb::shift<back>(enp_board);
 
@@ -471,7 +471,7 @@ void movgen::get_pinners(BoardPosition& pos, PositionInfo* info)
 			{
 				bitboard wo_left = pos.pieces[static_cast<uint>(Piece::ALL_PIECES)] ^ left_pawn ^ en_passant_pawn;
 				bitboard pinner_mask =
-					movgen::get_pseudo_attacks<movgen::PieceType::ROOK>(king_pos, wo_left) & bitb::sq_rank(king_pos);
+					movgen::get_pseudo_attacks<movgen::PieceType::ROOK>(king_pos, wo_left) & bitb::sq_rank_bitb(king_pos);
 
 				if(pinner_mask & (pos.pieces[static_cast<uint>(Piece::B_QUEEN) + them] | pos.pieces[static_cast<uint>(Piece::B_ROOK) + them]))
 					info->en_passant_pin = 1;
@@ -482,7 +482,7 @@ void movgen::get_pinners(BoardPosition& pos, PositionInfo* info)
 			{
 				bitboard wo_right = pos.pieces[static_cast<uint>(Piece::ALL_PIECES)] ^ right_pawn ^ en_passant_pawn;
 				bitboard pinner_mask =
-					movgen::get_pseudo_attacks<movgen::PieceType::ROOK>(king_pos, wo_right) & bitb::sq_rank(king_pos);
+					movgen::get_pseudo_attacks<movgen::PieceType::ROOK>(king_pos, wo_right) & bitb::sq_rank_bitb(king_pos);
 
 				if(pinner_mask & (pos.pieces[static_cast<uint>(Piece::B_QUEEN) + them] |
 							pos.pieces[static_cast<uint>(Piece::B_ROOK) + them]))
@@ -665,6 +665,11 @@ movgen::Move* movgen::make_move(movgen::BoardPosition* pos, const movgen::Move& 
 	if(pos->side_to_move == Color::WHITE)
 		pos->fullmove++;
 	pos->hash->ply++; // Reset later, if necessary
+					  //
+	// Update the hash before resetting the variables
+	pos->hash->key ^= zobrist::castling[pos->hash->castling_rights];
+	pos->hash->key ^= zobrist::en_passant[bitb::sq_file(pos->hash->en_passant)];
+
 	pos->hash->en_passant = 0;
 
 	switch(move.get_type())
@@ -716,7 +721,7 @@ movgen::Move* movgen::make_move(movgen::BoardPosition* pos, const movgen::Move& 
 		pos->hash->key ^= zobrist::table[static_cast<uint>(move.piece)][move.to];
 		break;
 	case movgen::MoveType::CASTLING: {
-		const bitboard king_rank = bitb::sq_rank(move.from);
+		const bitboard king_rank = bitb::sq_rank_bitb(move.from);
 		const movgen::Piece rook_piece = get_piece_from_type(PieceType::ROOK, cur_color);
 
 		if(move.get_castling() == Castling::SHORT_CASTLE)
@@ -739,6 +744,7 @@ movgen::Move* movgen::make_move(movgen::BoardPosition* pos, const movgen::Move& 
 		pos->hash->castling_rights &= ~(uint)(cur_color == Color::WHITE ?
 				CastlingRights::WHITE_CASTLE :
 				CastlingRights::BLACK_CASTLE);
+		pos->hash->key ^=
 
 		pos->hash->ply = 0;
 		pos->hash->key ^= zobrist::table[static_cast<uint>(move.piece)][move.from];
@@ -766,7 +772,6 @@ movgen::Move* movgen::make_move(movgen::BoardPosition* pos, const movgen::Move& 
 		if(movgen::get_piece_type(move.piece) == PieceType::KING)
 		{
 			pos->hash->ply = 0;
-			pos->hash->castling_rights &= ~static_cast<uint>(castling);
 			pos->hash->key ^= zobrist::castling[pos->hash->castling_rights & static_cast<uint>(castling)];
 		}
 		else if(movgen::get_piece_type(move.piece) == PieceType::ROOK)
@@ -780,10 +785,13 @@ movgen::Move* movgen::make_move(movgen::BoardPosition* pos, const movgen::Move& 
 				castling_change = static_cast<movgen::CastlingRights>(static_cast<uint>(castling) & static_cast<uint>(CastlingRights::LONG));
 
 			pos->hash->ply = 0;
-			pos->hash->key ^= zobrist::castling[static_cast<uint>(pos->hash->castling_rights) & static_cast<uint>(castling_change)];
 			pos->hash->castling_rights &= ~static_cast<uint>(castling_change);
 		}
 	}
+
+	// Update the hash with new variables
+	pos->hash->key ^= zobrist::en_passant[bitb::sq_rank(pos->hash->en_passant)];
+	pos->hash->key ^= zobrist::castling[pos->hash->castling_rights];
 
 	// Check for 3 fold repetition rule
 	if(pos->hash->ply > 2)

@@ -67,6 +67,7 @@ enum Direction
 	DOWN = -8
 };
 
+// Usecase: bitboard & File[2] -- get all pieces on the third file
 constexpr bitboard File[8]{
 	0x8080808080808080,
 	0x8080808080808080 >> 1,
@@ -138,11 +139,20 @@ extern bitboard Between[64][64];
 extern bitboard Between_in[64][64];
 
 // Get a rank or a file of a given square
-constexpr bitboard sq_rank(bpos sq)
+constexpr bpos sq_rank(bpos sq)
+{
+	return (sq >> 3) & 0b111;
+}
+constexpr bpos sq_file(bpos sq)
+{
+	return sq & 0b111;
+}
+
+constexpr bitboard sq_rank_bitb(bpos sq)
 {
 	return Rank[sq >> 3];
 }
-constexpr bitboard sq_file(bpos sq)
+constexpr bitboard sq_file_bitb(bpos sq)
 {
 	return File[7 - sq & 0b111];
 }
